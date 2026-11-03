@@ -3,7 +3,7 @@
 // ready / disconnected events, with the protocol.md section 5 messages.
 // Never talks to a real Home Assistant.
 
-import { layout293s, layoutAkp03e, layoutDashboard } from './layouts.mjs';
+import { layout293s, layoutAkp03e, layoutDashboard, bodyWhite, bodyBlack, bodyClear } from './layouts.mjs';
 
 const KEY_PX = 85;
 const BAND_PX = 80;
@@ -162,13 +162,13 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
     });
   };
   addPad('9d04e1b7a2c35f18', 'dev_293s', 'DESKTOP-MAX',
-    padState('9d04e1b7a2c35f18', 'stream_dock_293s', 'Stream Dock 293S', 'Desk pad', layout293s), ['key_14']);
+    padState('9d04e1b7a2c35f18', 'stream_dock_293s', 'Stream Dock 293S', 'Desk pad', layout293s, { body: bodyWhite }), ['key_14']);
   addPad('2b7e91c4d05a3f68', 'dev_akp03e', 'DESKTOP-MAX',
     padState('2b7e91c4d05a3f68', 'akp03e', 'AKP03E', 'Side knobs', layoutAkp03e,
-      { profile: { id: 'aa11', name: 'Media' }, pages: 1 }));
+      { profile: { id: 'aa11', name: 'Media' }, pages: 1, body: bodyBlack }));
   addPad('f00dfeed12345678', 'dev_dash', 'LAPTOP-OFFICE',
     padState('f00dfeed12345678', 'dashboard', 'Dashboard pad', 'Living room', layoutDashboard,
-      { profile: { id: 'bb22', name: 'Evening' }, page: 2, pages: 4 }), ['key_8']);
+      { profile: { id: 'bb22', name: 'Evening' }, page: 2, pages: 4, body: bodyClear }), ['key_8']);
 
   // Some press errors, as the integration returns them (protocol 5.3).
   pads.get('9d04e1b7a2c35f18').errors.key_5 = { code: 'failed', message: 'That key opens programs, which Home Assistant isn’t allowed to press' };

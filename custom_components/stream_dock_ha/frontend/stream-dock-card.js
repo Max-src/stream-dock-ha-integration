@@ -9,11 +9,11 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.0';
+const CARD_VERSION = '0.1.1';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
-/** Room around the controls on the pad body, in key units. */
+/** Room around the controls on the pad body, in key units, when the app doesn't say. */
 const BODY_MARGIN = 0.3;
 /** How long an error message stays, in ms. */
 const TOAST_MS = 3000;
@@ -59,6 +59,33 @@ export function keySizePx(widthPx, bodyUnits) {
   const u = Number(bodyUnits);
   if (!(w > 0) || !(u > 0)) return 0;
   return w / u;
+}
+
+/**
+ * How the pad's front and keys look, from its PadState's `body` (protocol
+ * 3.2), so the card draws it as the app does. An app that doesn't send it gets
+ * the card's own dark pad. `edge` and `corner` are in key units; key and band
+ * corners are parts of their width, 0.5 being round.
+ */
+export function bodyLook(body) {
+  const b = body && typeof body === 'object' ? body : {};
+  const part = (value, fallback, most) => {
+    const n = Number(value);
+    return value != null && Number.isFinite(n) && n >= 0 ? Math.min(most, n) : fallback;
+  };
+  const rgb = Array.isArray(b.front) && b.front.length === 3 && b.front.every((v) => Number.isFinite(Number(v)))
+    ? b.front.map((v) => Math.min(255, Math.max(0, Math.round(Number(v)))))
+    : null;
+  return {
+    front: rgb ? `rgb(${rgb.join(', ')})` : null,
+    // A see-through front: the keys float on the card.
+    clear: 'front' in b && !rgb,
+    light: !!rgb && rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 150,
+    edge: part(b.edge, BODY_MARGIN, 2),
+    corner: part(b.corner, 0.32, 2),
+    keyCorner: part(b.key_corner, 0.11, 0.5),
+    bandCorner: part(b.band_corner, 0.09, 0.5),
+  };
 }
 
 /**
@@ -122,12 +149,46 @@ export function computeLayout(layout, margin = BODY_MARGIN) {
       height: (item.h / height) * 100,
     };
   }
+  // The band's tiles share one black side screen, as on the 293S.
+  const bands = items.filter((item) => item.kind === 'band');
+  let strip = null;
+  if (bands.length) {
+    const left = Math.min(...bands.map((b) => b.left));
+    const top = Math.min(...bands.map((b) => b.top));
+    const right = Math.max(...bands.map((b) => b.left + b.w));
+    const bottom = Math.max(...bands.map((b) => b.top + b.h));
+    strip = {
+      w: Math.min(...bands.map((b) => b.w)),
+      box: {
+        left: (left / width) * 100,
+        top: (top / height) * 100,
+        width: ((right - left) / width) * 100,
+        height: ((bottom - top) / height) * 100,
+      },
+    };
+  }
   return {
     version: layout && layout.version != null ? String(layout.version) : null,
     width,
     height,
     items,
+    strip,
   };
+}
+
+/**
+ * A pad's Layout and body as the card draws them, with a version that changes
+ * when either the layout or the room round it does.
+ */
+export function laidOut(layout, body) {
+  const look = bodyLook(body);
+  const computed = computeLayout(layout, look.edge);
+  const version = layout && layout.version != null
+    ? String(layout.version)
+    : JSON.stringify((layout && layout.controls) || []);
+  computed.version = `${version}@${look.edge}`;
+  computed.look = look;
+  return computed;
 }
 
 function normalisePicture(raw) {
@@ -289,7 +350,7 @@ ha-card:not(:defined) {
 
 .frame {
   position: relative; width: 100%; container-type: inline-size;
-  --bw: 7; --bh: 4;
+  --bw: 7; --bh: 4; --pad-r: .32; --key-r: .11; --band-r: .09;
   aspect-ratio: var(--bw) / var(--bh);
   --u: calc(100cqw / var(--bw));
   -webkit-tap-highlight-color: transparent;
@@ -298,13 +359,26 @@ ha-card:not(:defined) {
 .frame[hidden] { display: none; }
 .pad {
   position: absolute; inset: 0;
-  border-radius: calc(var(--u) * 0.32);
+  border-radius: calc(var(--u) * var(--pad-r));
   background:
     radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.07), rgba(255,255,255,0) 60%),
     linear-gradient(180deg, #24262a 0%, #17181b 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 6px rgba(0,0,0,.5),
     0 2px 6px rgba(0,0,0,.25);
   transition: filter .25s ease;
+}
+/* The front's colour from the app, lit a little from the top. */
+.pad.painted {
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.09), rgba(255,255,255,0) 60%),
+    var(--front);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.16),
+    0 1px 2px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.14);
+}
+/* No front: only an outline shows where the pad is, as in the app. */
+.pad.clear {
+  background: none; box-shadow: none;
+  outline: 1px solid var(--divider-color, rgba(127,127,127,.35)); outline-offset: -1px;
 }
 .pad.dim .ctl, .pad.dim .knob { filter: brightness(.38) saturate(.6); }
 .pad.dim { }
@@ -318,12 +392,17 @@ ha-card:not(:defined) {
 .ctl:focus-visible, .knob [data-control]:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); }
 
 .key, .band {
-  border-radius: 11%;
-  background: #08090a;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 calc(var(--u) * .03) calc(var(--u) * .06) rgba(0,0,0,.6);
+  border-radius: calc(var(--key-r) * 100%);
+  background: #000;
+  box-shadow: 0 calc(var(--u) * .015) calc(var(--u) * .04) rgba(0,0,0,.35);
   overflow: hidden;
 }
-.band { border-radius: 9%; }
+.band { border-radius: calc(var(--band-r) * 100%); box-shadow: none; }
+.strip {
+  position: absolute; background: #000; pointer-events: none;
+  border-radius: calc(var(--u) * var(--band-r) * var(--sw, .82));
+  box-shadow: 0 calc(var(--u) * .015) calc(var(--u) * .04) rgba(0,0,0,.35);
+}
 .key img, .band img {
   position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   object-fit: cover; pointer-events: none; -webkit-user-drag: none;
@@ -371,7 +450,7 @@ ha-card:not(:defined) {
 
 .overlay {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  pointer-events: none; border-radius: calc(var(--u) * .32);
+  pointer-events: none; border-radius: calc(var(--u) * var(--pad-r));
 }
 .overlay[hidden] { display: none; }
 .overlay.block { pointer-events: auto; cursor: not-allowed; }
@@ -776,8 +855,8 @@ export class StreamDockCard extends Base {
   }
 
   _cachedLayout() {
-    const layout = this._padId && layoutCache.get(this._padId);
-    return layout ? computeLayout(layout) : null;
+    const cached = this._padId && layoutCache.get(this._padId);
+    return cached ? laidOut(cached.layout, cached.body) : null;
   }
 
   /* ---------- Scale ---------- */
@@ -824,17 +903,18 @@ export class StreamDockCard extends Base {
     this._loaded = true;
     this._message = null;
     if (pad && pad.layout) {
-      const version = pad.layout.version != null ? String(pad.layout.version) : JSON.stringify(pad.layout.controls || []);
-      if (!this._layout || this._layout.version !== version) {
-        layoutCache.set(this._padId, pad.layout);
-        const computed = computeLayout(pad.layout);
-        computed.version = version;
+      layoutCache.set(this._padId, { layout: pad.layout, body: pad.body });
+      const computed = laidOut(pad.layout, pad.body);
+      if (!this._layout || this._layout.version !== computed.version) {
         this._buildControls(computed);
         // The real layout can change the key size: check the scale.
         if (this._config.scale == null && this._watch) {
           const scale = this._measureScale();
           if (scale && scale !== this._watch.scale) this._sync();
         }
+      } else {
+        // The front's colour or the keys' corners can change on their own.
+        this._applyBody(computed.look);
       }
     }
     this._renderChrome();
@@ -853,6 +933,17 @@ export class StreamDockCard extends Base {
     this._layout = layout;
     this._els.clear();
     const frag = document.createDocumentFragment();
+    if (layout.strip) {
+      const strip = document.createElement('div');
+      strip.className = 'strip';
+      const b = layout.strip.box;
+      strip.style.left = `${b.left}%`;
+      strip.style.top = `${b.top}%`;
+      strip.style.width = `${b.width}%`;
+      strip.style.height = `${b.height}%`;
+      strip.style.setProperty('--sw', String(layout.strip.w));
+      frag.appendChild(strip);
+    }
     for (const item of layout.items) {
       const el = document.createElement('div');
       const b = item.box;
@@ -899,7 +990,22 @@ export class StreamDockCard extends Base {
     this._padEl.appendChild(frag);
     this._frame.style.setProperty('--bw', String(layout.width));
     this._frame.style.setProperty('--bh', String(layout.height));
+    this._applyBody(layout.look);
     for (const name of this._els.keys()) this._applyPicture(name);
+  }
+
+  _applyBody(look) {
+    if (!this._built || !look) return;
+    const pad = this._padEl;
+    const style = this._frame.style;
+    pad.classList.toggle('painted', !!look.front);
+    pad.classList.toggle('clear', look.clear);
+    pad.classList.toggle('light', look.light);
+    if (look.front) style.setProperty('--front', look.front);
+    else style.removeProperty('--front');
+    style.setProperty('--pad-r', String(look.corner));
+    style.setProperty('--key-r', String(look.keyCorner));
+    style.setProperty('--band-r', String(look.bandCorner));
   }
 
   _makePressable(el, name, press) {

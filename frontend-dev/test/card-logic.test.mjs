@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import {
   clampScale, chooseScale, keySizePx, computeLayout, mergePictures, humanizeControl,
   pressErrorText, padOverlay, resolvePadId, headerDetail, normaliseConfig, StreamDockCard,
-  retryDelayMs, RETRY_DELAYS_MS,
+  retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut,
 } from '../../custom_components/stream_dock_ha/frontend/stream-dock-card.js';
-import { layout293s, layoutAkp03e, layoutDashboard } from '../layouts.mjs';
+import { layout293s, layoutAkp03e, layoutDashboard, bodyWhite, bodyClear } from '../layouts.mjs';
 
 test('clampScale keeps 1..3 and rounds', () => {
   assert.equal(clampScale(0), 1);
@@ -39,18 +39,61 @@ test('keySizePx', () => {
 test('computeLayout: 293S body, boxes and margins', () => {
   const l = computeLayout(layout293s, 0.3);
   assert.equal(l.version, layout293s.version);
-  // 5 keys + 4 gaps of 0.52, then band at 7.98 + 0.94 = 8.92, plus margins.
-  assert.ok(Math.abs(l.width - (8.92 + 0.6)) < 1e-9, `width ${l.width}`);
-  assert.ok(Math.abs(l.height - (4.12 + 0.6)) < 1e-9, `height ${l.height}`);
+  // 5 keys a quarter apart, then the band at 6.25 + 0.82 = 7.07, plus margins.
+  assert.ok(Math.abs(l.width - (7.07 + 0.6)) < 1e-9, `width ${l.width}`);
+  assert.ok(Math.abs(l.height - (3.5 + 0.6)) < 1e-9, `height ${l.height}`);
   assert.equal(l.items.filter((i) => i.kind === 'key').length, 15);
   assert.equal(l.items.filter((i) => i.kind === 'band').length, 3);
   const key7 = l.items.find((i) => i.name === 'key_7');
-  assert.ok(Math.abs(key7.left - (1 * 1.52 + 0.3)) < 1e-9);
-  assert.ok(Math.abs(key7.top - (1 * 1.56 + 0.3)) < 1e-9);
+  assert.ok(Math.abs(key7.left - (1 * 1.25 + 0.3)) < 1e-9);
+  assert.ok(Math.abs(key7.top - (1 * 1.25 + 0.3)) < 1e-9);
   assert.ok(Math.abs(key7.box.width - (1 / l.width) * 100) < 1e-9);
   const band = l.items.find((i) => i.name === 'band_1');
   assert.equal(band.press, false);
   assert.equal(band.screen, true);
+  // The band tiles sit on one strip, from the top of the first to the bottom of the last.
+  const band3 = l.items.find((i) => i.name === 'band_3');
+  assert.ok(Math.abs(l.strip.box.top - band.box.top) < 1e-9);
+  assert.ok(Math.abs(l.strip.box.top + l.strip.box.height - (band3.box.top + band3.box.height)) < 1e-9);
+  assert.ok(Math.abs(l.strip.box.width - band.box.width) < 1e-9);
+  assert.equal(l.strip.w, 0.82);
+  assert.equal(computeLayout(layoutDashboard).strip, null);
+});
+
+test('bodyLook: the front, corners and edge from the app, with safe fallbacks', () => {
+  const white = bodyLook(bodyWhite);
+  assert.deepEqual(white, {
+    front: 'rgb(255, 255, 255)', clear: false, light: true,
+    edge: 0.3, corner: 0.3, keyCorner: 0.165, bandCorner: 0.175,
+  });
+  const clear = bodyLook(bodyClear);
+  assert.equal(clear.front, null);
+  assert.equal(clear.clear, true);
+  assert.equal(clear.keyCorner, 0.5);
+  assert.equal(bodyLook({ front: [10, 20, 30] }).light, false);
+  // An older app sends no body: the card's own dark pad, not a see-through one.
+  const none = bodyLook(undefined);
+  assert.equal(none.front, null);
+  assert.equal(none.clear, false);
+  assert.equal(none.edge, 0.3);
+  // Nonsense is clamped or ignored.
+  const odd = bodyLook({ front: [300, -5, 'x'], key_corner: 9, edge: -1, corner: null });
+  assert.equal(odd.front, null);
+  assert.equal(odd.keyCorner, 0.5);
+  assert.equal(odd.edge, 0.3);
+  assert.equal(odd.corner, 0.32);
+  assert.equal(bodyLook({ front: [300, -5, 7.6] }).front, 'rgb(255, 0, 8)');
+});
+
+test('laidOut: the edge from the body, and a version that follows it', () => {
+  const a = laidOut(layout293s, bodyWhite);
+  assert.ok(Math.abs(a.width - (7.07 + 0.6)) < 1e-9);
+  assert.equal(a.look.front, 'rgb(255, 255, 255)');
+  const b = laidOut(layout293s, { ...bodyWhite, edge: 0.5 });
+  assert.ok(Math.abs(b.width - (7.07 + 1.0)) < 1e-9);
+  assert.notEqual(a.version, b.version);
+  // A colour alone keeps the version: the controls aren't rebuilt for it.
+  assert.equal(laidOut(layout293s, { ...bodyWhite, front: [0, 0, 0] }).version, a.version);
 });
 
 test('computeLayout: grows the body when controls lie outside width/height', () => {

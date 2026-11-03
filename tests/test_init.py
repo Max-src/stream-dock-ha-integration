@@ -21,7 +21,7 @@ async def test_card_is_served(
 ) -> None:
     """The card is served and loaded on dashboards as a module."""
     assert (
-        "/stream_dock_ha/stream-dock-card.js?v=0.1.0"
+        "/stream_dock_ha/stream-dock-card.js?v=0.1.1"
         in hass.data[DATA_EXTRA_MODULE_URL].urls
     )
     client = await hass_client()

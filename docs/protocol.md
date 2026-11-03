@@ -133,7 +133,8 @@ Changes to `pc.cpu`, `pc.memory` and `pc.gpu` alone send it at most every 10 s.
   "pages": 3,
   "look": "c2a91f0e33b7d455",
   "alert": false,
-  "layout": Layout
+  "layout": Layout,
+  "body": Body
 }
 ```
 
@@ -145,12 +146,12 @@ Changes to `pc.cpu`, `pc.memory` and `pc.gpu` alone send it at most every 10 s.
 | `brightness` | 0 to 100 |
 | `mini_monitor` | `true` or `false`, or `null` for a pad that can't show it (`dashboard`) |
 | `page` | Counted from 1 |
-| `look` | Changes whenever the pad's screen keys would look different, including its layout and whether the screen is on. Band tiles are left out, because they follow the PC's load every 3 s. The integration uses it for the `image` entity's `image_last_updated` without needing pictures |
+| `look` | Changes whenever the pad's screen keys would look different, including its layout, its `body` and whether the screen is on. Band tiles are left out, because they follow the PC's load every 3 s. The integration uses it for the `image` entity's `image_last_updated` without needing pictures |
 | `alert` | An alert is covering the keys (section 6) |
 
 **Layout**
 
-Where every control is, in **key units**: 1.0 is the width of one key. The gaps are already included, so a key in column `c` starts at `x = c * (1 + gap_x)`.
+Where every control is, in **key units**: 1.0 is the width of one key. The gaps between keys as they're seen are already included, so a key in column `c` starts at `x = c * (1 + gap_x)`. They're a quarter of a key on the 293S and dashboard pads, and 0.26 on the AKP03E, as the app's window and pads on screen draw them. They aren't the pad's own gap setting, which is the screen hidden between keys that pictures across keys skip.
 
 ```json
 {
@@ -175,6 +176,23 @@ Where every control is, in **key units**: 1.0 is the width of one key. The gaps 
 - `width` and `height` cover every control, band tiles and knobs included.
 - `version` changes when the layout changes, for example when a dashboard pad's profile has a different grid.
 - Control names are the ones in [home-assistant-control.md](home-assistant-control.md): `key_N` counted from 1, left to right then down; `button_N`; `<knob>_knob_<left|right|press>`; and `band_N`, from the top, for the 293S's band tiles.
+
+**Body**
+
+How the pad looks round its controls, so the card draws it as the app's window does.
+
+```json
+{ "front": [255, 255, 255], "edge": 0.3, "corner": 0.3, "key_corner": 0.165, "band_corner": 0.175 }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `front` | The front's colour as `[r, g, b]`, or `null` for a see-through front: the keys float on whatever is behind the pad |
+| `edge` | The front round the controls, in key units |
+| `corner` | How round the front's corners are, in key units |
+| `key_corner`, `band_corner` | How round the keys' and band tiles' corners are, as a part of their width: 0 is square, 0.5 is round. Pictures already have black in their cut corners; on another front the card rounds them off |
+
+An app that sends no `body` gets the card's own dark pad.
 
 Result: `{ "renew_pads": [] }`. A non-empty list means "make new ids for these pads", as section 2 describes.
 
@@ -257,7 +275,7 @@ Commands added for the integration, also available through the event route:
 | Command | Fields | What it does | Reply `result` |
 | --- | --- | --- | --- |
 | `set_screen` | `pad`, `on` | Turns the pad's screen off (dark until turned on again or pressed) or back on | `{ "on": true }` |
-| `snapshot` | `pad`, optional `scale` (1–3, default 1) | A picture of the whole pad, laid out as in the layout, on the pad's front colour (dark grey if clear) | `{ "content_type": "image/jpeg", "data": "<base64>" }` |
+| `snapshot` | `pad`, optional `scale` (1–3, default 1) | A picture of the whole pad, laid out as in the layout with the body's `edge` round it, on the pad's front colour (dark grey if clear). The band's tiles sit on one black strip | `{ "content_type": "image/jpeg", "data": "<base64>" }` |
 | `show_alert` | `pad`, and optional `title`, `message`, `icon` (`mdi:…`), `color` ([r,g,b]), `seconds` (0 = until pressed; default 0), `camera` (a camera entity whose picture fills the alert) | Covers the pad's screen keys with one alert picture; see section 6 | `{}` |
 | `clear_alert` | `pad` | Takes the alert away | `{}` |
 

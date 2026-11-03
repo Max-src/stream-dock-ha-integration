@@ -17,7 +17,7 @@ async def test_connect_success(
     app = FakeApp(await hass_ws_client(hass))
     result = await app.connect()
     assert result["success"]
-    assert result["result"] == {"protocol": 1, "integration_version": "0.1.0"}
+    assert result["result"] == {"protocol": 1, "integration_version": "0.1.1"}
     assert await app.next_event() == {"kind": "watch", "pads": {}}
 
     device = get_device(hass, INSTANCE_1)
