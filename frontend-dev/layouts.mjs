@@ -19,9 +19,11 @@ export const layout293s = (() => {
     for (let c = 0; c < 5; c++) controls.push(key(n++, round(c * (1 + g)), round(r * (1 + g))));
   }
   const bandX = round(5 * (1 + g)); // 6.25
+  // Centred on the keys: (3.5 - 3.32) / 2 above and below.
+  const bandTop = (3 + 2 * g - (2 * (1 + g) + tile)) / 2;
   for (let i = 0; i < 3; i++) {
     controls.push({
-      name: `band_${i + 1}`, type: 'band', x: bandX, y: round(i * (1 + g)),
+      name: `band_${i + 1}`, type: 'band', x: bandX, y: round(bandTop + i * (1 + g)),
       w: tile, h: tile, screen: true, press: false,
     });
   }
