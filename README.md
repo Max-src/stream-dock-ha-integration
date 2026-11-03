@@ -13,27 +13,63 @@ The app connects to Home Assistant over its usual connection. Nothing listens on
 
 ## Install
 
-1. Copy the `custom_components/stream_dock_ha` folder into Home Assistant's `/config/custom_components` folder.
-2. Restart Home Assistant.
-3. Go to **Settings > Devices & services > Add integration**, and add **Stream Dock HA**.
-4. In the app on each PC, open **Settings > Home Assistant** and tick **Let Home Assistant control this app**.
+You need Home Assistant 2026.8 or later, and the Stream Dock HA app 1.1.0 or later on each PC.
 
-Each PC appears as soon as its app connects.
+### 1. Put the integration in Home Assistant
+
+**By hand:**
+
+1. Download this repository.
+2. Copy its `custom_components/stream_dock_ha` folder into the `custom_components` folder inside Home Assistant's configuration folder, so you have `/config/custom_components/stream_dock_ha/manifest.json`. Create `custom_components` if it isn't there. The File editor or Samba add-ons can do this.
+3. Restart Home Assistant.
+
+**With HACS**, once this repository is public: in HACS, open the menu, choose **Custom repositories**, add `https://github.com/Max-src/stream-dock-ha-integration` with the type **Integration**, then download **Stream Dock HA** and restart Home Assistant.
+
+### 2. Add it
+
+Go to **Settings > Devices & services**, choose **Add integration** and pick **Stream Dock HA**. There's nothing to fill in, and it's added once for all your PCs.
+
+### 3. Connect the app on each PC
+
+1. In the app, open **Settings > Home Assistant** and connect it to Home Assistant, if it isn't already. **Use a token from an administrator user.** Home Assistant only lets administrators use the integration's commands, so with another user's token the PC never appears. To make one, log in as an administrator, open your profile, then **Security > Long-lived access tokens > Create token**.
+2. Tick **Let Home Assistant control this app**.
+3. Leave **Show this PC in the Stream Dock HA integration** ticked, as it is at first. You can change the PC's name there; Home Assistant follows it.
+
+The line under them should read **Integration: connected as** the PC's name. The PC and its pads then appear under **Settings > Devices & services > Stream Dock HA**. If the line says something else, see [Troubleshooting](#troubleshooting).
+
+Keys that open programs or websites, press keys or type text can't be pressed from Home Assistant until you allow it: in the app, select the key and set its **Pressing from Home Assistant** to **Always**. Home Assistant can't change that setting.
 
 ### Options
 
-**Only administrators can press keys on dashboards** (off by default). When it's off, anyone logged in to Home Assistant can press keys on a card.
+**Only administrators can press keys on dashboards** (off by default), under the integration's **Configure**. When it's off, anyone logged in to Home Assistant can press keys on a card.
 
 ## The card
 
-The integration loads the card on every dashboard. Add it with:
+The integration adds the card to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download.
+
+To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream Dock pad**, then pick a pad. The editor also has:
+
+| Setting | What it does |
+| --- | --- |
+| Show name | The pad's name above the keys. On by default |
+| Show profile | The profile and page it's showing. On by default |
+| Vibrate on press | A short vibration on phones that can. On by default |
+| Picture scale | 1 to 3. Leave it empty to match the screen |
+
+Or in YAML:
 
 ```yaml
 type: custom:stream-dock-card
 device_id: <the pad's device id>
+show_name: true
+show_profile: true
+haptic: true
+scale: 2
 ```
 
-or pick **Stream Dock pad** in the card list, then pick a pad. `pad_id` works instead of `device_id`, and `scale` (1 to 3) is optional. The card shows the pad's keys as the pad shows them. Tap a key to press it. Pads of a PC that's off are shown as offline.
+`pad_id` works instead of `device_id`. Only `device_id` or `pad_id` is needed.
+
+The card shows the pad's keys as the pad shows them, live, alerts included. Tap a key to press it. Pads of a PC that's off are shown dimmed, with their last pictures, and can't be pressed.
 
 ## Entities
 
@@ -93,10 +129,37 @@ Use the device trigger **"key_3" pressed** on a pad, or listen to the `stream_do
 
 Blueprints in [`blueprints/automation/stream_dock_ha`](blueprints/automation/stream_dock_ha):
 
-- **Knob dims a light**: turning a knob dims or brightens a light, pressing it toggles the light;
-- **Key toggles an entity**;
-- **Microphone drives an on-air light**;
-- **Doorbell alert**: shows the door camera on a pad when the doorbell rings.
+- **Stream Dock knob dims a light**: turning a knob dims or brightens a light, pressing it toggles the light;
+- **Stream Dock key toggles an entity**;
+- **Stream Dock microphone drives an on-air light**;
+- **Stream Dock doorbell alert**: shows the door camera on a pad when the doorbell rings.
+
+To use them, copy the `stream_dock_ha` folder into `/config/blueprints/automation/`, so you have `/config/blueprints/automation/stream_dock_ha/doorbell_alert.yaml`, then restart Home Assistant or reload automations. They appear under **Settings > Automations & scenes > Blueprints**, where **Create automation** on one of them sets it up. Once this repository is public, **Import blueprint** with a blueprint's GitHub address works too.
+
+## Troubleshooting
+
+The app says how the integration is doing in **Settings > Home Assistant**, on the line under **Show this PC in the Stream Dock HA integration**. That line shows only while the app is connected to Home Assistant and the box is ticked; if it's missing, check the address and token above it first.
+
+| The app says | What to do |
+| --- | --- |
+| Integration: not installed in Home Assistant | Copy the integration into Home Assistant and restart it ([step 1](#1-put-the-integration-in-home-assistant)). The app asks again each time it connects |
+| Integration: add Stream Dock HA in Home Assistant's Devices & services | It's installed but not added yet ([step 2](#2-add-it)) |
+| The integration needs a token from an administrator user | Home Assistant answered `unauthorized`: the app's token belongs to a user who isn't an administrator. Make a token as an administrator, and paste it in the app |
+| Integration: update the Stream Dock HA integration | The integration is older than the app. Update it and restart Home Assistant |
+| Integration: update this app | The app is older than the integration. Update the app |
+| Integration: waiting for Home Assistant | The app has asked and is waiting for an answer. If it stays, restart Home Assistant |
+
+On a card or from an action:
+
+| You see | What it means |
+| --- | --- |
+| A key refused, saying it opens programs or presses keys, or can't be pressed | That key's **Pressing from Home Assistant** setting, in the app. **Automatic** refuses keys that open programs or websites, press keys or type text, and **Never** refuses everything. Choose **Always** to allow it |
+| Home Assistant control is off in the app | Tick **Let Home Assistant control this app** in the app |
+| Only administrators can press keys here | The option **Only administrators can press keys on dashboards** is on, and you're not an administrator |
+| PC offline | The app on that PC is closed, or not connected to Home Assistant |
+| An action fails after 10 seconds | The app didn't answer. Check that it's running and connected |
+
+The app's `pad-log.txt`, next to its settings in `%APPDATA%\StreamDockHA`, lists what it heard from the integration. **Download diagnostics** on the integration's page in Home Assistant gives its side.
 
 ## Development
 
