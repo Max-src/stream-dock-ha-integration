@@ -20,6 +20,8 @@ logger:
   default: warning
   logs:
     custom_components.stream_dock_ha: debug
+    homeassistant.bootstrap: info
+    homeassistant.setup: info
 
 input_boolean:
   desk_lamp:
