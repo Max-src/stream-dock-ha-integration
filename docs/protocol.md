@@ -145,7 +145,7 @@ Changes to `pc.cpu`, `pc.memory` and `pc.gpu` alone send it at most every 10 s.
 | `brightness` | 0 to 100 |
 | `mini_monitor` | `true` or `false`, or `null` for a pad that can't show it (`dashboard`) |
 | `page` | Counted from 1 |
-| `look` | Changes whenever anything on the pad's screens would look different. The integration uses it for the `image` entity's `image_last_updated` without needing pictures |
+| `look` | Changes whenever the pad's screen keys would look different, including its layout and whether the screen is on. Band tiles are left out, because they follow the PC's load every 3 s. The integration uses it for the `image` entity's `image_last_updated` without needing pictures |
 | `alert` | An alert is covering the keys (section 6) |
 
 **Layout**
@@ -327,9 +327,9 @@ All three commands can also fail with `not_set_up` when the integration has no c
 
 An alert covers all of a pad's screen keys with one picture, drawn across the gaps the way a stretched camera is. The band and the buttons stay as they are.
 
-- **Picture:** the alert's colour (default a strong amber), its icon large in the middle, its title above and its message below.
+- **Picture:** the alert's colour (default a strong amber), with its icon, title and message placed inside the keys so the gaps don't hide them: the title along the top row, the icon in a key of its own, and the message along the bottom, running on from key to key.
 - **With `camera`:** the camera's live picture fills the alert instead, refreshed as camera keys are, and the title stays as a strip at the top.
-- **Pressing:** the card shows a "press any key to dismiss" hint. Any press on that pad (a key, a button, a knob, on the pad, on screen or on the card) dismisses the alert and does nothing else. It's announced with `dismissed: true`.
+- **Pressing:** the card shows a "press any key to dismiss" hint. Keyboard shortcuts aren't presses on the pad: they run as usual and leave the alert up. Any press on that pad (a key, a button, a knob, on the pad, on screen or on the card) dismisses the alert and does nothing else. It's announced with `dismissed: true`.
 - **`seconds`:** a value above 0 takes the alert away by itself after that long.
 - **A new alert replaces the old one.** Alerts aren't saved: they're gone when the app restarts.
 
