@@ -316,7 +316,8 @@ export function normaliseConfig(config) {
   }
   out.show_name = out.show_name !== false;
   out.show_profile = out.show_profile !== false;
-  out.haptic = out.haptic !== false;
+  // Cards saved before 0.1.2 may still say whether to vibrate.
+  delete out.haptic;
   return out;
 }
 
@@ -546,7 +547,6 @@ export class StreamDockCard extends Base {
           schema: [
             { name: 'show_name', selector: { boolean: {} } },
             { name: 'show_profile', selector: { boolean: {} } },
-            { name: 'haptic', selector: { boolean: {} } },
           ],
         },
         { name: 'scale', selector: { number: { min: 1, max: 3, step: 1, mode: 'box' } } },
@@ -555,7 +555,6 @@ export class StreamDockCard extends Base {
         device_id: 'Pad',
         show_name: 'Show name',
         show_profile: 'Show profile',
-        haptic: 'Vibrate on press',
         scale: 'Picture scale (empty: automatic)',
       })[s.name],
       computeHelper: (s) => (s.name === 'scale'
@@ -1100,7 +1099,6 @@ export class StreamDockCard extends Base {
     this._releaseDown();
     this._down = { pointerId: e.pointerId, el, control: el.dataset.control, at: Date.now() };
     this._showDown(el, true);
-    this._haptic();
   }
 
   _onPointerUp(e) {
@@ -1119,7 +1117,6 @@ export class StreamDockCard extends Base {
     if (e.repeat) return;
     this._showDown(el, true);
     setTimeout(() => this._showDown(el, false), MIN_PRESS_MS + 40);
-    this._haptic();
     this._press(el.dataset.control);
   }
 
@@ -1141,11 +1138,6 @@ export class StreamDockCard extends Base {
     } else {
       el.classList.toggle('down', on);
     }
-  }
-
-  _haptic() {
-    if (this._config && this._config.haptic === false) return;
-    this.dispatchEvent(new CustomEvent('haptic', { detail: 'light', bubbles: true, composed: true }));
   }
 
   async _press(control) {

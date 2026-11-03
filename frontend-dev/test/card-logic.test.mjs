@@ -219,12 +219,13 @@ test('headerDetail', () => {
 });
 
 test('normaliseConfig', () => {
-  assert.deepEqual(normaliseConfig({ pad_id: 'x' }), { pad_id: 'x', show_name: true, show_profile: true, haptic: true });
+  assert.deepEqual(normaliseConfig({ pad_id: 'x' }), { pad_id: 'x', show_name: true, show_profile: true });
   assert.equal(normaliseConfig({ pad_id: 'x', scale: '3' }).scale, 3);
   assert.equal('scale' in normaliseConfig({ pad_id: 'x', scale: '' }), false);
   assert.throws(() => normaliseConfig({ pad_id: 'x', scale: 5 }));
   assert.throws(() => normaliseConfig(null));
-  assert.equal(normaliseConfig({ haptic: false }).haptic, false);
+  // The old vibrate setting is dropped.
+  assert.equal('haptic' in normaliseConfig({ haptic: false }), false);
 });
 
 test('config form and Lovelace hooks', () => {

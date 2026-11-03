@@ -53,7 +53,6 @@ To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream 
 | --- | --- |
 | Show name | The pad's name above the keys. On by default |
 | Show profile | The profile and page it's showing. On by default |
-| Vibrate on press | A short vibration on phones that can. On by default |
 | Picture scale | 1 to 3. Leave it empty to match the screen |
 
 Or in YAML:
@@ -63,7 +62,6 @@ type: custom:stream-dock-card
 device_id: <the pad's device id>
 show_name: true
 show_profile: true
-haptic: true
 scale: 2
 ```
 
