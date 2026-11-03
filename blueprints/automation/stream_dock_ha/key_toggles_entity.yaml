@@ -1,0 +1,40 @@
+blueprint:
+  name: Stream Dock key toggles an entity
+  description: Pressing a key or button on a Stream Dock pad turns an entity on or off.
+  domain: automation
+  source_url: https://github.com/Max-src/stream-dock-ha-integration/blob/main/blueprints/automation/stream_dock_ha/key_toggles_entity.yaml
+  input:
+    pad:
+      name: Pad
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    control:
+      name: Key
+      description: The control's name, such as key_3 or button_1.
+      default: key_1
+      selector:
+        text:
+    target_entity:
+      name: Entity
+      selector:
+        entity: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: device
+    domain: stream_dock_ha
+    device_id: !input pad
+    type: pressed
+    subtype: !input control
+
+actions:
+  - action: homeassistant.toggle
+    target:
+      entity_id: !input target_entity

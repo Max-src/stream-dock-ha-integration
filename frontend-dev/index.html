@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stream-dock-card harness</title>
+<style>
+  :root {
+    /* HA's default dark theme, roughly. */
+    --primary-color: #03a9f4;
+    --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9b9b9b;
+    --text-primary-color: #ffffff;
+    --error-color: #db4437;
+    --warning-color: #ffa600;
+    --divider-color: rgba(225, 225, 225, .12);
+    --card-background-color: #1c1c1c;
+    --ha-card-background: #1c1c1c;
+    --ha-card-border-radius: 12px;
+    --primary-background-color: #111111;
+    color-scheme: dark;
+  }
+  :root.light {
+    --primary-text-color: #212121;
+    --secondary-text-color: #727272;
+    --divider-color: rgba(0, 0, 0, .12);
+    --card-background-color: #ffffff;
+    --ha-card-background: #ffffff;
+    --primary-background-color: #fafafa;
+    color-scheme: light;
+  }
+  body {
+    margin: 0; padding: 20px; background: var(--primary-background-color);
+    font-family: Roboto, "Segoe UI", Arial, sans-serif; color: var(--primary-text-color);
+  }
+  nav { font-size: 13px; margin-bottom: 14px; color: var(--secondary-text-color); }
+  nav a { color: var(--primary-color); margin-right: 10px; }
+  .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .col { flex: 0 0 auto; }
+  .caption { font-size: 12px; color: var(--secondary-text-color); margin: 0 0 6px 4px; }
+  #log { margin-top: 16px; font: 11px/1.4 Consolas, monospace; color: var(--secondary-text-color);
+    max-height: 240px; overflow: auto; white-space: pre-wrap; }
+  #results { font: 13px/1.5 Consolas, monospace; white-space: pre-wrap; }
+  .shots nav, .shots #log, .shots .caption { display: none; }
+</style>
+</head>
+<body>
+<nav>
+  Scenarios:
+  <a href="?">normal</a><a href="?s=update">picture update</a><a href="?s=offline">offline</a>
+  <a href="?s=mini">Mini Monitor + unplugged</a><a href="?s=alert">alert</a><a href="?s=screenoff">screen off</a>
+  <a href="?s=error">press errors</a><a href="?s=reconnect">HA reconnect</a><a href="?s=selftest">self-test</a>
+  <a href="?theme=light">light theme</a><a href="?nohacard">no ha-card</a>
+</nav>
+<div class="row" id="cards"></div>
+<pre id="results"></pre>
+<pre id="log"></pre>
+
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  if (params.get('theme') === 'light') document.documentElement.classList.add('light');
+  if (params.has('shots')) document.body.classList.add('shots');
+
+  // Tiny stand-in for HA's ha-card (left out with ?nohacard to check the fallback).
+  if (!params.has('nohacard') && !customElements.get('ha-card')) {
+    customElements.define('ha-card', class extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' }).innerHTML = `<style>:host{display:block;
+          background:var(--ha-card-background,var(--card-background-color));
+          border-radius:var(--ha-card-border-radius,12px);
+          border:1px solid var(--divider-color);color:var(--primary-text-color)}</style><slot></slot>`;
+      }
+    });
+  }
+
+  const { createMockHass } = await import('./mock-hass.js');
+  await import('../custom_components/stream_dock_ha/frontend/stream-dock-card.js');
+
+  const logEl = document.getElementById('log');
+  const sent = [];
+  const log = (what, msg, extra) => {
+    if (what === 'send' || what === 'unsubscribe') sent.push({ what, msg, extra });
+    logEl.textContent += `${what} ${JSON.stringify(msg)}${extra ? ' ' + JSON.stringify(extra) : ''}\n`;
+  };
+  const { hass, control } = createMockHass({ log });
+  window.mock = control;
+  window.hass = hass;
+  window.sent = sent;
+  document.addEventListener('haptic', (e) => log('haptic', e.detail));
+
+  const P293 = '9d04e1b7a2c35f18';
+  const PAKP = '2b7e91c4d05a3f68';
+  const PDASH = 'f00dfeed12345678';
+  const cardsEl = document.getElementById('cards');
+
+  function addCard(config, width, caption) {
+    const col = document.createElement('div');
+    col.className = 'col';
+    if (params.has("narrow")) width = 250;
+    col.style.width = `min(${width}px, 100%)`;
+    col.innerHTML = `<div class="caption">${caption}</div>`;
+    const card = document.createElement('stream-dock-card');
+    card.setConfig(config);
+    card.hass = hass;
+    col.appendChild(card);
+    cardsEl.appendChild(col);
+    return card;
+  }
+
+  const s = params.get('s') || 'normal';
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function pointer(card, control, type) {
+    const el = card.shadowRoot.querySelector(`[data-control="${control}"]`);
+    el.dispatchEvent(new PointerEvent(type, { bubbles: true, composed: true, pointerId: 1, button: 0, isPrimary: true }));
+    return el;
+  }
+  function tap(card, control) { pointer(card, control, 'pointerdown'); pointer(card, control, 'pointerup'); }
+
+  if (s === 'selftest') {
+    runSelfTest();
+  } else {
+    const c293 = addCard({ device_id: 'dev_293s' }, 500, '293S, by device_id');
+    const cAkp = addCard({ pad_id: PAKP }, 400, 'AKP03E, by pad_id');
+    const cDash = addCard({ pad_id: PDASH, show_profile: true }, 360, 'Dashboard pad 4 x 2');
+    await wait(400);
+    if (s === 'update') {
+      control.updatePicture(P293, 'key_3', 'Lamp ON');
+      control.updatePicture(P293, 'key_14', 'New');
+      control.clearPicture(P293, 'key_9');
+      control.nextPage(PDASH);
+    } else if (s === 'offline') {
+      control.setOnline(P293, false);
+      control.setOnline(PDASH, false);
+    } else if (s === 'mini') {
+      control.setMiniMonitor(P293, true);
+      control.setConnected(PAKP, false);
+    } else if (s === 'alert') {
+      control.showAlert(P293, { title: 'Doorbell', message: 'Someone is at the front door' });
+      control.showAlert(PDASH, { title: 'Washer', message: 'The laundry is done', color: [33, 150, 243] });
+    } else if (s === 'screenoff') {
+      control.setScreen(P293, false);
+      control.setScreen(PAKP, false);
+    } else if (s === 'error') {
+      tap(c293, 'key_5');
+      tap(cAkp, 'button_3');
+      tap(cDash, 'key_4');
+      await wait(200);
+      pointer(cDash, 'key_2', 'pointerdown'); // held: shows the pressed look
+      pointer(cAkp, 'top_knob_left', 'pointerdown');
+    } else if (s === 'reconnect') {
+      control.dropConnection();
+    }
+  }
+
+  async function runSelfTest() {
+    const out = document.getElementById('results');
+    const results = [];
+    const check = (name, ok, info = '') => results.push(`${ok ? 'PASS' : 'FAIL'} ${name}${info ? ' — ' + info : ''}`);
+    try {
+      const card = addCard({ device_id: 'dev_293s' }, 500, 'self-test');
+      await wait(300);
+      const root = card.shadowRoot;
+      check('resolves device_id with stream_dock_ha/pads', sent.some((m) => m.msg.type === 'stream_dock_ha/pads'));
+      const watch = sent.find((m) => m.msg.type === 'stream_dock_ha/watch');
+      check('subscribes stream_dock_ha/watch with pad_id', watch && watch.msg.pad_id === P293, JSON.stringify(watch && watch.msg));
+      check('scale is 1..3', watch && [1, 2, 3].includes(watch.msg.scale));
+      check('one subscriber', control.subscriberCount(P293) === 1);
+      check('draws 15 keys + 3 band tiles', root.querySelectorAll('.key').length === 15 && root.querySelectorAll('.band').length === 3);
+      check('band tiles are not pressable', !root.querySelector('.band[data-control]'));
+      check('keys have role=button and labels', root.querySelector('[data-control="key_7"]').getAttribute('aria-label') === 'Key 7'
+        && root.querySelector('[data-control="key_7"]').getAttribute('role') === 'button');
+      check('key_14 empty, key_1 has picture', !root.querySelector('[data-control="key_14"]').classList.contains('pic')
+        && root.querySelector('[data-control="key_1"] img').src.startsWith('data:image/jpeg;base64,'));
+
+      // Only changed pictures touch the DOM.
+      const mutated = new Set();
+      const mo = new MutationObserver((list) => list.forEach((m) => {
+        const ctl = m.target.closest('[data-control], .band');
+        mutated.add(ctl ? (ctl.dataset.control || 'band') : m.target.className);
+      }));
+      mo.observe(root.querySelector('.pad'), { subtree: true, attributes: true, attributeFilter: ['src'], childList: true });
+      control.updatePicture(P293, 'key_3', 'Changed');
+      await wait(120);
+      check('a picture update touches only that key', mutated.size === 1 && mutated.has('key_3'), [...mutated].join(','));
+      mutated.clear();
+      // A complete set with the same hashes touches nothing; the pad event with the same layout version doesn't rebuild.
+      const before = root.querySelector('[data-control="key_1"]');
+      control.setMiniMonitor(P293, false);
+      await wait(120);
+      check('same layout version keeps the DOM', root.querySelector('[data-control="key_1"]') === before && mutated.size === 0);
+      control.nextPage(P293); // new hashes for all
+      await wait(150);
+      check('a new page updates every key picture', mutated.size >= 14, String(mutated.size));
+      mo.disconnect();
+
+      // Press goes out with the right message.
+      tap(card, 'key_2');
+      await wait(120);
+      const press = sent.find((m) => m.msg.type === 'stream_dock_ha/press');
+      check('press sends stream_dock_ha/press', press && press.msg.pad_id === P293 && press.msg.control === 'key_2', JSON.stringify(press && press.msg));
+      // Keyboard.
+      const k6 = root.querySelector('[data-control="key_6"]');
+      k6.focus();
+      k6.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+      await wait(120);
+      check('Enter presses the focused key', sent.some((m) => m.msg.type === 'stream_dock_ha/press' && m.msg.control === 'key_6'));
+      // Error toast.
+      tap(card, 'key_5');
+      await wait(150);
+      const toast = root.querySelector('.toast');
+      check('a refused press shows a toast', toast.classList.contains('show') && /allowed/.test(toast.textContent), toast.textContent);
+
+      // Offline blocks, keeps pictures.
+      control.setOnline(P293, false);
+      await wait(100);
+      check('offline shows "PC offline"', root.querySelector('.overlay').textContent.includes('PC offline') && !root.querySelector('.overlay').hidden);
+      check('offline keeps pictures', root.querySelectorAll('.key.pic').length >= 14);
+      control.setOnline(P293, true);
+      await wait(100);
+      check('back online hides the overlay', root.querySelector('.overlay').hidden);
+
+      // Reconnect: resubscribes once.
+      const watchesBefore = sent.filter((m) => m.msg.type === 'stream_dock_ha/watch').length;
+      control.dropConnection();
+      await wait(50);
+      check('disconnect shows reconnecting', root.querySelector('.overlay').textContent.includes('Reconnecting'));
+      control.restoreConnection();
+      await wait(300);
+      const watchesAfter = sent.filter((m) => m.msg.type === 'stream_dock_ha/watch').length;
+      check('resubscribes after ready', watchesAfter === watchesBefore + 1 && control.subscriberCount(P293) === 1,
+        `${watchesBefore} -> ${watchesAfter}, subs ${control.subscriberCount(P293)}`);
+      check('subscribes with resubscribe:false', sent.filter((m) => m.msg.type === 'stream_dock_ha/watch').every((m) => m.extra && m.extra.resubscribe === false));
+
+      // Config change: new pad.
+      card.setConfig({ pad_id: PDASH });
+      await wait(300);
+      check('changing pad unsubscribes the old one', control.subscriberCount(P293) === 0 && control.subscriberCount(PDASH) === 1);
+      check('draws the dashboard pad', root.querySelectorAll('.key').length === 8);
+
+      // Removal unsubscribes.
+      card.parentElement.remove();
+      await wait(100);
+      check('removing the card unsubscribes', control.subscriberCount(PDASH) === 0);
+
+      // Unknown pad.
+      const bad = addCard({ pad_id: '0000000000000000' }, 300, 'unknown');
+      await wait(200);
+      check('unknown pad shows a message', bad.shadowRoot.querySelector('.message').textContent.includes("isn't known"));
+      const nodev = addCard({ device_id: 'nope' }, 300, 'unknown device');
+      await wait(200);
+      check('non-pad device shows a message', nodev.shadowRoot.querySelector('.message').textContent.includes("isn't a Stream Dock pad"));
+    } catch (err) {
+      results.push(`FAIL exception ${err && err.stack || err}`);
+    }
+    const fails = results.filter((r) => r.startsWith('FAIL')).length;
+    out.textContent = `SELFTEST ${fails ? 'FAILED' : 'OK'} (${results.length - fails}/${results.length})\n${results.join('\n')}`;
+  }
+</script>
+</body>
+</html>

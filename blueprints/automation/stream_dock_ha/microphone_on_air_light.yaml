@@ -1,0 +1,49 @@
+blueprint:
+  name: Stream Dock microphone drives an on-air light
+  description: >-
+    Turns a light on while the PC's microphone is live, and off while it's
+    muted or the PC is away.
+  domain: automation
+  source_url: https://github.com/Max-src/stream-dock-ha-integration/blob/main/blueprints/automation/stream_dock_ha/microphone_on_air_light.yaml
+  input:
+    microphone:
+      name: Microphone muted sensor
+      selector:
+        entity:
+          filter:
+            - integration: stream_dock_ha
+              domain: binary_sensor
+    light:
+      name: On-air light
+      selector:
+        entity:
+          filter:
+            - domain: light
+    color:
+      name: Color
+      default: [255, 0, 0]
+      selector:
+        color_rgb:
+
+mode: restart
+
+triggers:
+  - trigger: state
+    entity_id: !input microphone
+
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: !input microphone
+            state: "off"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input light
+            data:
+              rgb_color: !input color
+    default:
+      - action: light.turn_off
+        target:
+          entity_id: !input light

@@ -1,0 +1,87 @@
+blueprint:
+  name: Stream Dock knob dims a light
+  description: >-
+    Turning a knob on a Stream Dock pad dims or brightens a light.
+    Pressing the knob turns the light on or off.
+  domain: automation
+  source_url: https://github.com/Max-src/stream-dock-ha-integration/blob/main/blueprints/automation/stream_dock_ha/knob_dims_light.yaml
+  input:
+    pad:
+      name: Pad
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    knob:
+      name: Knob
+      description: The knob's name, as in its controls (top_knob_press is the top knob).
+      default: top
+      selector:
+        select:
+          options:
+            - label: Top knob
+              value: top
+            - label: Lower left knob
+              value: lower_left
+            - label: Lower right knob
+              value: lower_right
+    light:
+      name: Light
+      selector:
+        entity:
+          filter:
+            - domain: light
+    step:
+      name: Step
+      description: How much each click of the knob changes the brightness.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          unit_of_measurement: "%"
+
+mode: queued
+max: 20
+max_exceeded: silent
+
+triggers:
+  - trigger: event
+    event_type: stream_dock_ha_event
+    event_data:
+      device_id: !input pad
+      dismissed: false
+
+variables:
+  knob: !input knob
+  step: !input step
+  control: "{{ trigger.event.data.control }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ control.startswith(knob ~ '_knob_') }}"
+
+actions:
+  - choose:
+      - conditions: "{{ control == knob ~ '_knob_left' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input light
+            data:
+              brightness_step_pct: "{{ -step }}"
+      - conditions: "{{ control == knob ~ '_knob_right' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input light
+            data:
+              brightness_step_pct: "{{ step }}"
+      - conditions: "{{ control == knob ~ '_knob_press' }}"
+        sequence:
+          - action: light.toggle
+            target:
+              entity_id: !input light

@@ -41,6 +41,7 @@ Duplicates can only come from copying a settings file, so they are handled in tw
    - `connect` with a known `instance_id` but a different `machine` is refused with error code `renew_instance`. The same applies when another live connection already uses that `instance_id` with a different `machine`. The app then makes new instance and pad ids and sends `connect` again.
    - The same `instance_id` and `machine` on a new connection is the same PC coming back, for example after a network drop. The new connection replaces the old one, and the old one's subscription is ended.
    - `state` with a `pad_id` that belongs to another `instance_id` gets that id back in `renew_pads`. The app makes a new id for each listed pad, moves its profiles over to it, saves, and sends `state` again.
+   - A renewed pad is a new device in Home Assistant. Cards and automations that pointed at the old one must be pointed at the new one. This only happens to settings copied between PCs.
 
 ## 3. Commands the app sends
 
@@ -79,6 +80,8 @@ Errors (`success: false`, `error.code`):
 | `protocol_mismatch` | Protocol versions differ; `error.message` says which the integration speaks | Logs it, shows "Update the Stream Dock HA integration" or "Update the app" in Settings > Home Assistant, carries on without it |
 | `renew_instance` | Duplicate, see section 2 | New instance and pad ids, then `connect` again on the same socket |
 | `not_set_up` | The integration is installed but has no config entry | Shows "Add the Stream Dock HA integration in Home Assistant's Devices & services" |
+
+Any other app command sent on a socket that has no live `connect` gets the error `not_connected`. This happens, for example, after the integration was reloaded, which ends the subscription. The app then sends `connect` again on the same socket.
 
 Once the result is in, the subscription stays open. The integration pushes events down it (section 4) until the connection closes. The app sends a full `state` right after a successful `connect`.
 
@@ -151,7 +154,7 @@ Where every control is, in **key units**: 1.0 is the width of one key. The gaps 
 ```json
 {
   "version": "77e0b4a1c9d2f356",
-  "width": 7.08,
+  "width": 8.92,
   "height": 4.12,
   "controls": [
     { "name": "key_1",  "type": "key",  "x": 0.0,  "y": 0.0, "w": 1.0, "h": 1.0, "screen": true,  "press": true },
@@ -168,6 +171,7 @@ Where every control is, in **key units**: 1.0 is the width of one key. The gaps 
 
 - `type` is `key`, `button`, `knob_left`, `knob_right`, `knob_press` or `band`. A knob's three parts share `group` and geometry: the card draws one knob with a left half, a right half and a centre.
 - `screen`: the control shows a picture. `press`: pressing it does something.
+- `width` and `height` cover every control, band tiles and knobs included.
 - `version` changes when the layout changes, for example when a dashboard pad's profile has a different grid.
 - Control names are the ones in [home-assistant-control.md](home-assistant-control.md): `key_N` counted from 1, left to right then down; `button_N`; `<knob>_knob_<left|right|press>`; and `band_N`, from the top, for the 293S's band tiles.
 
@@ -256,7 +260,7 @@ Commands added for the integration, also available through the event route:
 | `show_alert` | `pad`, and optional `title`, `message`, `icon` (`mdi:…`), `color` ([r,g,b]), `seconds` (0 = until pressed; default 0), `camera` (a camera entity whose picture fills the alert) | Covers the pad's screen keys with one alert picture; see section 6 | `{}` |
 | `clear_alert` | `pad` | Takes the alert away | `{}` |
 
-`press_key` takes `source` too. Section 7 says what Home Assistant is allowed to press.
+`press_key` takes `source` too. Its `control` accepts screen keys too (`key_3`), which is what the card sends. While Mini Monitor is on, a press from the physical pad or a pad on screen only brings the keys back, as today. A press from `dashboard` or `action` runs the key and leaves Mini Monitor on, because whoever sent it is looking at the card, not the pad. Alerts and a dark screen swallow presses from every source, as section 6 says. Section 7 says what Home Assistant is allowed to press.
 
 ### 4.2 `watch`
 
@@ -293,8 +297,12 @@ It lists every known pad, including pads of PCs that are offline. The card's edi
 
 `scale` is optional: 1, 2 or 3, default 2. It's refused with `not_found` for an unknown pad. Events:
 
-- `{ "kind": "pad", "online": true, "pc": "DESKTOP-MAX", "pad": PadState }`: first, then on every change. `online: false` with the last known `pad` when the PC goes away.
+- `{ "kind": "pad", "online": true, "listed": true, "pc": "DESKTOP-MAX", "pad": PadState }`: first, then on every change. `online` says the PC is connected. `listed` says the pad was in that PC's latest `state` (false when the person removed it from the app). When the PC goes away, `online: false` comes with the last known `pad`.
 - `{ "kind": "pictures", "complete": true, "scale": 2, "pictures": { "key_1": { "hash": "...", "data": "..." }, ... } }`: first the full set the integration holds (if any), then whatever the app sends.
+
+- The `scale` of pictures can differ from the one asked for: the app draws at the largest scale any card wants, and the integration's cache can hold an older scale until the new set arrives. Cards show whatever arrives, sized to fit.
+- A big update can come in several `pictures` events, so a pad may look half-updated for a moment.
+- After Home Assistant's connection drops and comes back, a card subscribes again. The integration then replays the `pad` event and the complete picture set it holds.
 
 While at least one card watches a pad, the integration includes it in the `watch` it sends that pad's app. When the last card leaves, it takes it out.
 
@@ -310,7 +318,9 @@ The integration checks the user may press (section 7), then sends the app `press
 - `offline`: the PC isn't connected
 - `control_off`: the app's control setting is off
 - `unauthorized`: the user isn't allowed to press
-- `failed`: the app said no, and `message` says why
+- `failed`: the app said no, or didn't answer within 10 s; `message` says why
+
+All three commands can also fail with `not_set_up` when the integration has no config entry.
 
 ## 6. Alerts
 
@@ -318,7 +328,7 @@ An alert covers all of a pad's screen keys with one picture, drawn across the ga
 
 - **Picture:** the alert's colour (default a strong amber), its icon large in the middle, its title above and its message below.
 - **With `camera`:** the camera's live picture fills the alert instead, refreshed as camera keys are, and the title stays as a strip at the top.
-- **Pressing:** any press on that pad (a key, a button, a knob, on the pad, on screen or on the card) dismisses the alert and does nothing else. It's announced with `dismissed: true`.
+- **Pressing:** the card shows a "press any key to dismiss" hint. Any press on that pad (a key, a button, a knob, on the pad, on screen or on the card) dismisses the alert and does nothing else. It's announced with `dismissed: true`.
 - **`seconds`:** a value above 0 takes the alert away by itself after that long.
 - **A new alert replaces the old one.** Alerts aren't saved: they're gone when the app restarts.
 
@@ -340,6 +350,7 @@ These rules apply to every route Home Assistant has into the app (events, action
 
 ### In the integration
 
+- Changing an entity (the profile select, the page number, the screen light, the Mini Monitor switch) follows Home Assistant's usual entity permissions, like any other device.
 - Actions that change things (everything but `get_state`, `get_key` and `snapshot`) are refused with `unauthorized` when they're called by a logged-in user who isn't an administrator. Automations and scripts, which run without a user, are allowed.
 - The card's `press` is allowed for any logged-in user, unless the integration's option **Only administrators can press keys on dashboards** is on.
 - `connect` needs any logged-in user. The integration remembers which HA user each PC connected as, for the log.

@@ -1,0 +1,14 @@
+{
+  "domain": "stream_dock_ha",
+  "name": "Stream Dock HA",
+  "codeowners": ["@Max-src"],
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "websocket_api"],
+  "documentation": "https://github.com/Max-src/stream-dock-ha-integration",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Max-src/stream-dock-ha-integration/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

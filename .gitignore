@@ -5,3 +5,4 @@ __pycache__/
 node_modules/
 .ha-test/
 *.egg-info/
+.ruff_cache/

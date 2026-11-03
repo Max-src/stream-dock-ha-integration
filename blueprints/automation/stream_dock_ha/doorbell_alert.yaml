@@ -1,0 +1,62 @@
+blueprint:
+  name: Stream Dock doorbell alert
+  description: >-
+    When the doorbell rings, covers a Stream Dock pad's keys with an alert
+    showing the door camera. Any press on the pad dismisses it.
+  domain: automation
+  source_url: https://github.com/Max-src/stream-dock-ha-integration/blob/main/blueprints/automation/stream_dock_ha/doorbell_alert.yaml
+  input:
+    doorbell:
+      name: Doorbell
+      description: A sensor that turns on when the doorbell rings.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+            - domain: input_boolean
+    pad:
+      name: Pad
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    camera:
+      name: Camera
+      selector:
+        entity:
+          filter:
+            - domain: camera
+    title:
+      name: Title
+      default: Someone's at the door
+      selector:
+        text:
+    seconds:
+      name: Seconds
+      description: Take the alert away after this long. 0 keeps it until a press.
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: s
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input doorbell
+    to: "on"
+
+actions:
+  - action: stream_dock_ha.show_alert
+    data:
+      device_id: !input pad
+      title: !input title
+      icon: mdi:doorbell
+      camera: !input camera
+      seconds: !input seconds

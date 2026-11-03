@@ -1,0 +1,573 @@
+show_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    profile:
+      required: true
+      selector:
+        text:
+
+next_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+
+previous_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+
+first_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+
+add_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    name:
+      required: true
+      selector:
+        text:
+
+rename_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    name:
+      required: true
+      selector:
+        text:
+    profile:
+      selector:
+        text:
+
+duplicate_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    profile:
+      selector:
+        text:
+    name:
+      selector:
+        text:
+
+delete_profile:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    profile:
+      required: true
+      selector:
+        text:
+
+show_page:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    page:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    profile:
+      selector:
+        text:
+
+next_page:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    profile:
+      selector:
+        text:
+
+previous_page:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    profile:
+      selector:
+        text:
+
+add_page:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    profile:
+      selector:
+        text:
+
+delete_page:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    page:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    profile:
+      selector:
+        text:
+
+set_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    control:
+      selector:
+        text:
+    set:
+      required: true
+      selector:
+        object:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+add_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    set:
+      required: true
+      selector:
+        object:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+clear_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    control:
+      selector:
+        text:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+press_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    control:
+      selector:
+        text:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+swap_keys:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    with:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+copy_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    control:
+      selector:
+        text:
+    to:
+      required: true
+      selector:
+        object:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+move_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    control:
+      selector:
+        text:
+    to:
+      required: true
+      selector:
+        object:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+get_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    control:
+      selector:
+        text:
+    profile:
+      selector:
+        text:
+    page:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+get_state:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+
+set_brightness:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    level:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+set_screen:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    "on":
+      required: true
+      selector:
+        boolean:
+
+mini_monitor:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    "on":
+      required: true
+      selector:
+        boolean:
+
+show_alert:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    title:
+      selector:
+        text:
+    message:
+      selector:
+        text:
+          multiline: true
+    icon:
+      selector:
+        icon:
+    color:
+      selector:
+        color_rgb:
+    seconds:
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s
+          mode: box
+    camera:
+      selector:
+        entity:
+          filter:
+            - domain: camera
+
+clear_alert:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select

@@ -1,0 +1,633 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Adds Stream Dock HA. Then let Home Assistant control the app on each PC."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Stream Dock HA is already added."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "admin_only_press": "Only administrators can press keys on dashboards"
+        },
+        "data_description": {
+          "admin_only_press": "When off, anyone logged in can press keys on a Stream Dock card."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "pressed": "{subtype} pressed"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      },
+      "mic_muted": {
+        "name": "Microphone muted"
+      },
+      "online": {
+        "name": "Online"
+      }
+    },
+    "event": {
+      "press": {
+        "name": "Press",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "dismissed": "Dismissed"
+            }
+          },
+          "profile": {
+            "name": "Profile"
+          },
+          "page": {
+            "name": "Page"
+          },
+          "title": {
+            "name": "Title"
+          },
+          "source": {
+            "name": "Source"
+          }
+        }
+      }
+    },
+    "image": {
+      "picture": {
+        "name": "Picture"
+      }
+    },
+    "light": {
+      "screen": {
+        "name": "Screen"
+      }
+    },
+    "notify": {
+      "alert": {
+        "name": "Alert"
+      }
+    },
+    "number": {
+      "page": {
+        "name": "Page"
+      }
+    },
+    "select": {
+      "profile": {
+        "name": "Profile"
+      }
+    },
+    "sensor": {
+      "cpu": {
+        "name": "CPU"
+      },
+      "memory": {
+        "name": "Memory"
+      },
+      "gpu": {
+        "name": "GPU"
+      },
+      "last_press": {
+        "name": "Last press"
+      }
+    },
+    "switch": {
+      "mini_monitor": {
+        "name": "Mini Monitor"
+      }
+    }
+  },
+  "exceptions": {
+    "not_found": {
+      "message": "Unknown pad."
+    },
+    "offline": {
+      "message": "The PC isn't connected."
+    },
+    "control_off": {
+      "message": "Home Assistant control is turned off in the app."
+    },
+    "timeout": {
+      "message": "The PC didn't answer."
+    },
+    "failed": {
+      "message": "The PC said no: {message}"
+    },
+    "not_loaded": {
+      "message": "Stream Dock HA isn't set up."
+    },
+    "not_a_pad": {
+      "message": "That device isn't a Stream Dock HA pad."
+    }
+  },
+  "services": {
+    "show_profile": {
+      "name": "Show profile",
+      "description": "Puts a pad on a profile.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "next_profile": {
+      "name": "Next profile",
+      "description": "Moves the pad to its next profile.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        }
+      }
+    },
+    "previous_profile": {
+      "name": "Previous profile",
+      "description": "Moves the pad to its previous profile.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        }
+      }
+    },
+    "first_profile": {
+      "name": "First profile",
+      "description": "Moves the pad to its first profile.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        }
+      }
+    },
+    "add_profile": {
+      "name": "Add profile",
+      "description": "Adds an empty profile.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "name": {
+          "name": "Name",
+          "description": "The profile's name."
+        }
+      }
+    },
+    "rename_profile": {
+      "name": "Rename profile",
+      "description": "Renames a profile, and any key that switches to it.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "name": {
+          "name": "Name",
+          "description": "The profile's name."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "duplicate_profile": {
+      "name": "Duplicate profile",
+      "description": "Copies a profile.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "name": {
+          "name": "Name",
+          "description": "The profile's name."
+        }
+      }
+    },
+    "delete_profile": {
+      "name": "Delete profile",
+      "description": "Deletes a profile. The pad keeps at least one.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "show_page": {
+      "name": "Show page",
+      "description": "Shows a page.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "next_page": {
+      "name": "Next page",
+      "description": "Turns to the next page.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "previous_page": {
+      "name": "Previous page",
+      "description": "Turns to the previous page.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "add_page": {
+      "name": "Add page",
+      "description": "Adds a page, without showing it.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "delete_page": {
+      "name": "Delete page",
+      "description": "Deletes a page. A profile keeps at least one.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        }
+      }
+    },
+    "set_key": {
+      "name": "Set key",
+      "description": "Changes some of a key's settings.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "control": {
+          "name": "Control",
+          "description": "A control's name, such as top_knob_press. Use instead of a key number."
+        },
+        "set": {
+          "name": "Settings",
+          "description": "The key's fields to change, such as title, color, glyph and actions."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "add_key": {
+      "name": "Add key",
+      "description": "Fills the first free key on the page.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "set": {
+          "name": "Settings",
+          "description": "The key's fields to change, such as title, color, glyph and actions."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "clear_key": {
+      "name": "Clear key",
+      "description": "Empties a key.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "control": {
+          "name": "Control",
+          "description": "A control's name, such as top_knob_press. Use instead of a key number."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "press_key": {
+      "name": "Press key",
+      "description": "Runs a key's steps.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "control": {
+          "name": "Control",
+          "description": "A control's name, such as top_knob_press. Use instead of a key number."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "swap_keys": {
+      "name": "Swap keys",
+      "description": "Swaps two keys on a page.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "with": {
+          "name": "With key",
+          "description": "The key number to swap with."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "copy_key": {
+      "name": "Copy key",
+      "description": "Copies a key, without its shortcut.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "control": {
+          "name": "Control",
+          "description": "A control's name, such as top_knob_press. Use instead of a key number."
+        },
+        "to": {
+          "name": "To",
+          "description": "Where to: key or control, and optionally device_id, profile and page."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "move_key": {
+      "name": "Move key",
+      "description": "Moves a key, shortcut included.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "control": {
+          "name": "Control",
+          "description": "A control's name, such as top_knob_press. Use instead of a key number."
+        },
+        "to": {
+          "name": "To",
+          "description": "Where to: key or control, and optionally device_id, profile and page."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "get_key": {
+      "name": "Get key",
+      "description": "Returns a key's settings.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "A key number, from 1, left to right then down."
+        },
+        "control": {
+          "name": "Control",
+          "description": "A control's name, such as top_knob_press. Use instead of a key number."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile's name. Leave empty for the profile showing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page number, from 1. Leave empty for the page showing."
+        }
+      }
+    },
+    "get_state": {
+      "name": "Get state",
+      "description": "Returns the pads, their profiles and settings.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        }
+      }
+    },
+    "set_brightness": {
+      "name": "Set brightness",
+      "description": "Sets the pad's brightness.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "level": {
+          "name": "Brightness",
+          "description": "From 0 to 100."
+        }
+      }
+    },
+    "set_screen": {
+      "name": "Set screen",
+      "description": "Turns the pad's screen off or back on.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "on": {
+          "name": "On",
+          "description": "On or off."
+        }
+      }
+    },
+    "mini_monitor": {
+      "name": "Mini Monitor",
+      "description": "Turns Mini Monitor on or off.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "on": {
+          "name": "On",
+          "description": "On or off."
+        }
+      }
+    },
+    "show_alert": {
+      "name": "Show alert",
+      "description": "Covers the pad's keys with an alert.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Shown above the message."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Shown below the icon."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "Shown large in the middle."
+        },
+        "color": {
+          "name": "Color",
+          "description": "The alert's color. Strong amber if left empty."
+        },
+        "seconds": {
+          "name": "Seconds",
+          "description": "Take the alert away after this long. 0 keeps it until a press."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "A camera whose picture fills the alert."
+        }
+      }
+    },
+    "clear_alert": {
+      "name": "Clear alert",
+      "description": "Takes the alert away.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        }
+      }
+    }
+  }
+}

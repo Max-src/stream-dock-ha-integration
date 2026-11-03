@@ -1,0 +1,139 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "mic_muted": {
+        "default": "mdi:microphone",
+        "state": {
+          "on": "mdi:microphone-off"
+        }
+      }
+    },
+    "event": {
+      "press": {
+        "default": "mdi:gesture-tap-button"
+      }
+    },
+    "light": {
+      "screen": {
+        "default": "mdi:monitor"
+      }
+    },
+    "notify": {
+      "alert": {
+        "default": "mdi:alert"
+      }
+    },
+    "number": {
+      "page": {
+        "default": "mdi:book-open-page-variant"
+      }
+    },
+    "select": {
+      "profile": {
+        "default": "mdi:view-dashboard"
+      }
+    },
+    "sensor": {
+      "cpu": {
+        "default": "mdi:cpu-64-bit"
+      },
+      "memory": {
+        "default": "mdi:memory"
+      },
+      "gpu": {
+        "default": "mdi:expansion-card"
+      },
+      "last_press": {
+        "default": "mdi:gesture-tap"
+      }
+    },
+    "switch": {
+      "mini_monitor": {
+        "default": "mdi:monitor-small"
+      }
+    }
+  },
+  "services": {
+    "show_profile": {
+      "service": "mdi:view-dashboard"
+    },
+    "next_profile": {
+      "service": "mdi:skip-next"
+    },
+    "previous_profile": {
+      "service": "mdi:skip-previous"
+    },
+    "first_profile": {
+      "service": "mdi:skip-backward"
+    },
+    "add_profile": {
+      "service": "mdi:plus-box"
+    },
+    "rename_profile": {
+      "service": "mdi:rename"
+    },
+    "duplicate_profile": {
+      "service": "mdi:content-copy"
+    },
+    "delete_profile": {
+      "service": "mdi:delete"
+    },
+    "show_page": {
+      "service": "mdi:book-open-page-variant"
+    },
+    "next_page": {
+      "service": "mdi:page-next"
+    },
+    "previous_page": {
+      "service": "mdi:page-previous"
+    },
+    "add_page": {
+      "service": "mdi:book-plus"
+    },
+    "delete_page": {
+      "service": "mdi:book-remove"
+    },
+    "set_key": {
+      "service": "mdi:pencil"
+    },
+    "add_key": {
+      "service": "mdi:plus"
+    },
+    "clear_key": {
+      "service": "mdi:eraser"
+    },
+    "press_key": {
+      "service": "mdi:gesture-tap-button"
+    },
+    "swap_keys": {
+      "service": "mdi:swap-horizontal"
+    },
+    "copy_key": {
+      "service": "mdi:content-copy"
+    },
+    "move_key": {
+      "service": "mdi:cursor-move"
+    },
+    "get_key": {
+      "service": "mdi:information"
+    },
+    "get_state": {
+      "service": "mdi:information-outline"
+    },
+    "set_brightness": {
+      "service": "mdi:brightness-6"
+    },
+    "set_screen": {
+      "service": "mdi:monitor"
+    },
+    "mini_monitor": {
+      "service": "mdi:monitor-small"
+    },
+    "show_alert": {
+      "service": "mdi:alert"
+    },
+    "clear_alert": {
+      "service": "mdi:alert-remove"
+    }
+  }
+}
