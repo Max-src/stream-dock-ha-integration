@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from aiohttp import web
 from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers.http import KEY_HASS, HomeAssistantView
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
@@ -47,16 +48,45 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def _async_register_card(hass: HomeAssistant, version: str) -> None:
-    """Serve the dashboard card and load it on every dashboard."""
+    """Serve the dashboard card and load it on every dashboard.
+
+    It's listed in the dashboards' resources, as HACS does, so it loads even
+    in a page that was open while Home Assistant restarted. Only when those
+    are written in YAML is it put in every page instead. Its address has no
+    version, and the browser checks for a newer file at each page load, so a
+    new card shows after a refresh, without restarting Home Assistant.
+    """
     if not await hass.async_add_executor_job(FRONTEND_DIR.is_dir):
         _LOGGER.warning("The card's folder is missing: %s", FRONTEND_DIR)
         return
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(URL_BASE, str(FRONTEND_DIR), cache_headers=False)]
-    )
-    url = f"{CARD_URL}?v={version}"
-    add_extra_js_url(hass, url)
-    await async_list_card(hass, url)
+    hass.http.register_view(CardView())
+    if not await async_list_card(hass, CARD_URL):
+        add_extra_js_url(hass, CARD_URL)
+
+
+class CardView(HomeAssistantView):
+    """The card's files, without login: browsers load them as scripts."""
+
+    url = f"{URL_BASE}/{{path:.+}}"
+    name = f"{DOMAIN}:card"
+    requires_auth = False
+
+    async def get(self, request: web.Request, path: str) -> web.FileResponse:
+        """Return a file of the card's folder, to be checked again next time."""
+        root = FRONTEND_DIR.resolve()
+        file = (root / path).resolve()
+        # Only the folder's own scripts: "../" and other kinds are refused.
+        if not file.is_relative_to(root) or file.suffix != ".js":
+            raise web.HTTPNotFound
+        if not await request.app[KEY_HASS].async_add_executor_job(file.is_file):
+            raise web.HTTPNotFound
+        return web.FileResponse(
+            file,
+            headers={
+                "Cache-Control": "no-cache, stale-if-error=86400",
+                "Content-Type": "text/javascript",
+            },
+        )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: StreamDockConfigEntry) -> bool:

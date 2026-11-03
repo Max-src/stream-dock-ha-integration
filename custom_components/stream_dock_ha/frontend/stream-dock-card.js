@@ -9,7 +9,7 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.3';
+const CARD_VERSION = '0.1.4';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;

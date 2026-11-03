@@ -1,12 +1,11 @@
 """Keeps the dashboard card listed in the dashboards' resources.
 
-The frontend also loads the card through `add_extra_js_url`, but only pages
-rendered after this integration was set up get it. A browser that reconnects
-while Home Assistant restarts keeps a page without the card, and dashboards
-then say "Custom element doesn't exist: stream-dock-card" until a full reload.
-Dashboards fetch their resources themselves, so listing the card there too
-makes it load in that case. The URL is the same one, so the browser loads the
-module only once.
+`add_extra_js_url` only reaches pages rendered after this integration was set
+up: a browser that reconnects while Home Assistant restarts keeps a page
+without the card, and dashboards then say "Custom element doesn't exist:
+stream-dock-card" until a full reload. Dashboards fetch their resources
+themselves, so the card is listed there, as HACS does; `add_extra_js_url` is
+only for resources written in YAML. An older address with `?v=` is updated.
 """
 
 from __future__ import annotations
@@ -34,12 +33,19 @@ def _ours(items: list[dict]) -> list[dict]:
     return [item for item in items if item.get("url", "").split("?")[0] == CARD_URL]
 
 
-async def async_list_card(hass: HomeAssistant, url: str) -> None:
-    """Add the card to the resources, or bring its version up to date."""
-    resources = _resources(hass)
+async def async_list_card(hass: HomeAssistant, url: str) -> bool:
+    """Add the card to the resources, or bring its address up to date.
+
+    Returns whether it's listed; not when resources are written in YAML.
+    """
+    try:
+        resources = _resources(hass)
+    except Exception:  # Lovelace's insides changed: the page loads it
+        _LOGGER.debug("Dashboard resources aren't available", exc_info=True)
+        return False
     if resources is None:
         _LOGGER.debug("Dashboard resources aren't in storage; not listing the card")
-        return
+        return False
     await resources.async_get_info()
     first, *extra = _ours(resources.async_items()) or [None]
     if first is None:
@@ -52,6 +58,7 @@ async def async_list_card(hass: HomeAssistant, url: str) -> None:
         _LOGGER.debug("Updated the card's dashboard resource to %s", url)
     for item in extra:
         await resources.async_delete_item(item["id"])
+    return True
 
 
 async def async_unlist_card(hass: HomeAssistant) -> None:

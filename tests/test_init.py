@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 import yaml
@@ -19,14 +18,15 @@ PACKAGE = Path(__file__).parent.parent / "custom_components" / DOMAIN
 async def test_card_is_served(
     hass: HomeAssistant, hass_client: Any, setup_entry: MockConfigEntry
 ) -> None:
-    """The card is served and loaded on dashboards as a module."""
-    assert (
-        "/stream_dock_ha/stream-dock-card.js?v=0.1.3"
-        in hass.data[DATA_EXTRA_MODULE_URL].urls
-    )
+    """The card is served as a script the browser checks again at each load."""
     client = await hass_client()
     response = await client.get("/stream_dock_ha/stream-dock-card.js")
     assert response.status == 200
+    assert response.headers["Content-Type"].startswith("text/javascript")
+    assert response.headers["Cache-Control"].startswith("no-cache")
+    # Nothing else is served from there.
+    for path in ("%2E%2E/hub.py", "%2E%2E/%2E%2E/secrets.js", "nothing.js", "x.py"):
+        assert (await client.get(f"/stream_dock_ha/{path}")).status == 404
 
 
 async def test_services_yaml_matches_actions(

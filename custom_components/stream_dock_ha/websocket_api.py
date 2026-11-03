@@ -163,15 +163,21 @@ def _send_app_error(connection: ActiveConnection, msg_id: int, err: Exception) -
 
 
 @websocket_api.websocket_command(
-    {
-        probatio.Required("type"): "stream_dock_ha/connect",
-        probatio.Required("protocol"): int,
-        probatio.Required("app_version"): str,
-        probatio.Required("instance_id"): HEX_ID,
-        probatio.Required("machine"): HEX_ID,
-        probatio.Required("name"): str,
-        probatio.Required("control"): bool,
-    }
+    probatio.All(
+        probatio.Schema(
+            {
+                probatio.Required("type"): "stream_dock_ha/connect",
+                probatio.Required("protocol"): int,
+                probatio.Required("app_version"): str,
+                probatio.Required("instance_id"): HEX_ID,
+                probatio.Required("machine"): HEX_ID,
+                probatio.Required("name"): str,
+                probatio.Required("control"): bool,
+            },
+            # A newer app may send more: what this version knows is enough.
+            extra=probatio.ALLOW_EXTRA,
+        )
+    )
 )
 @callback
 def ws_connect(
@@ -225,13 +231,19 @@ def _local_url(hass: HomeAssistant) -> str | None:
 
 
 @websocket_api.websocket_command(
-    {
-        probatio.Required("type"): "stream_dock_ha/state",
-        probatio.Required("name"): str,
-        probatio.Required("control"): bool,
-        probatio.Required("pc"): PC_SCHEMA,
-        probatio.Required("pads"): [PAD_SCHEMA],
-    }
+    probatio.All(
+        probatio.Schema(
+            {
+                probatio.Required("type"): "stream_dock_ha/state",
+                probatio.Required("name"): str,
+                probatio.Required("control"): bool,
+                probatio.Required("pc"): PC_SCHEMA,
+                probatio.Required("pads"): [PAD_SCHEMA],
+            },
+            # A newer app may send more: what this version knows is enough.
+            extra=probatio.ALLOW_EXTRA,
+        )
+    )
 )
 @callback
 def ws_state(
@@ -252,16 +264,22 @@ def ws_state(
 
 
 @websocket_api.websocket_command(
-    {
-        probatio.Required("type"): "stream_dock_ha/pressed",
-        probatio.Required("pad_id"): HEX_ID,
-        probatio.Required("control"): str,
-        probatio.Optional("profile"): OPTIONAL_STR,
-        probatio.Optional("page"): probatio.Any(None, int),
-        probatio.Optional("title"): OPTIONAL_STR,
-        probatio.Optional("source"): OPTIONAL_STR,
-        probatio.Optional("dismissed", default=False): bool,
-    }
+    probatio.All(
+        probatio.Schema(
+            {
+                probatio.Required("type"): "stream_dock_ha/pressed",
+                probatio.Required("pad_id"): HEX_ID,
+                probatio.Required("control"): str,
+                probatio.Optional("profile"): OPTIONAL_STR,
+                probatio.Optional("page"): probatio.Any(None, int),
+                probatio.Optional("title"): OPTIONAL_STR,
+                probatio.Optional("source"): OPTIONAL_STR,
+                probatio.Optional("dismissed", default=False): bool,
+            },
+            # A newer app may send more: what this version knows is enough.
+            extra=probatio.ALLOW_EXTRA,
+        )
+    )
 )
 @callback
 def ws_pressed(
@@ -282,27 +300,37 @@ def ws_pressed(
 
 
 @websocket_api.websocket_command(
-    {
-        probatio.Required("type"): "stream_dock_ha/frame",
-        probatio.Required("instance_id"): HEX_ID,
-        probatio.Required("key"): str,
-        probatio.Required("pad_id"): HEX_ID,
-        probatio.Required("width"): probatio.All(int, probatio.Range(min=1, max=4096)),
-        probatio.Required("height"): probatio.All(int, probatio.Range(min=1, max=4096)),
-        probatio.Required("data"): str,
-        probatio.Required("tiles"): [
-            probatio.Schema(
-                {
-                    probatio.Required("name"): str,
-                    probatio.Required("x"): int,
-                    probatio.Required("y"): int,
-                    probatio.Required("w"): int,
-                    probatio.Required("h"): int,
-                }
-            )
-        ],
-        probatio.Optional("seamless", default=False): bool,
-    }
+    probatio.All(
+        probatio.Schema(
+            {
+                probatio.Required("type"): "stream_dock_ha/frame",
+                probatio.Required("instance_id"): HEX_ID,
+                probatio.Required("key"): str,
+                probatio.Required("pad_id"): HEX_ID,
+                probatio.Required("width"): probatio.All(
+                    int, probatio.Range(min=1, max=4096)
+                ),
+                probatio.Required("height"): probatio.All(
+                    int, probatio.Range(min=1, max=4096)
+                ),
+                probatio.Required("data"): str,
+                probatio.Required("tiles"): [
+                    probatio.Schema(
+                        {
+                            probatio.Required("name"): str,
+                            probatio.Required("x"): int,
+                            probatio.Required("y"): int,
+                            probatio.Required("w"): int,
+                            probatio.Required("h"): int,
+                        }
+                    )
+                ],
+                probatio.Optional("seamless", default=False): bool,
+            },
+            # A newer app may send more: what this version knows is enough.
+            extra=probatio.ALLOW_EXTRA,
+        )
+    )
 )
 @callback
 def ws_frame(
@@ -322,13 +350,19 @@ def ws_frame(
 
 
 @websocket_api.websocket_command(
-    {
-        probatio.Required("type"): "stream_dock_ha/pictures",
-        probatio.Required("pad_id"): HEX_ID,
-        probatio.Required("scale"): SCALE,
-        probatio.Required("complete"): bool,
-        probatio.Required("pictures"): {str: PICTURE_SCHEMA},
-    }
+    probatio.All(
+        probatio.Schema(
+            {
+                probatio.Required("type"): "stream_dock_ha/pictures",
+                probatio.Required("pad_id"): HEX_ID,
+                probatio.Required("scale"): SCALE,
+                probatio.Required("complete"): bool,
+                probatio.Required("pictures"): {str: PICTURE_SCHEMA},
+            },
+            # A newer app may send more: what this version knows is enough.
+            extra=probatio.ALLOW_EXTRA,
+        )
+    )
 )
 @callback
 def ws_pictures(
@@ -355,13 +389,19 @@ def ws_pictures(
 
 
 @websocket_api.websocket_command(
-    {
-        probatio.Required("type"): "stream_dock_ha/reply",
-        probatio.Required("request_id"): str,
-        probatio.Required("ok"): bool,
-        probatio.Optional("result"): object,
-        probatio.Optional("error"): OPTIONAL_STR,
-    }
+    probatio.All(
+        probatio.Schema(
+            {
+                probatio.Required("type"): "stream_dock_ha/reply",
+                probatio.Required("request_id"): str,
+                probatio.Required("ok"): bool,
+                probatio.Optional("result"): object,
+                probatio.Optional("error"): OPTIONAL_STR,
+            },
+            # A newer app may send more: what this version knows is enough.
+            extra=probatio.ALLOW_EXTRA,
+        )
+    )
 )
 @callback
 def ws_reply(

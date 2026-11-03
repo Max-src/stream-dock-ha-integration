@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
 from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
@@ -9,7 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.stream_dock_ha.const import DOMAIN
 
-URL = "/stream_dock_ha/stream-dock-card.js?v=0.1.3"
+URL = "/stream_dock_ha/stream-dock-card.js"
 
 
 async def _setup(hass: HomeAssistant, lovelace: dict | None = None) -> MockConfigEntry:
@@ -66,6 +67,13 @@ async def test_removing_the_integration_unlists_the_card(hass: HomeAssistant) ->
 
 
 async def test_yaml_resources_are_left_alone(hass: HomeAssistant) -> None:
-    """Resources written in YAML aren't touched; the extra module still loads the card."""
+    """Resources written in YAML aren't touched; every page loads the card instead."""
     await _setup(hass, {"lovelace": {"resource_mode": "yaml", "resources": []}})
     assert _cards(hass) == []
+    assert URL in hass.data[DATA_EXTRA_MODULE_URL].urls
+
+
+async def test_a_listed_card_isnt_also_put_in_every_page(hass: HomeAssistant) -> None:
+    """With the card in the resources, pages don't load it a second way."""
+    await _setup(hass)
+    assert URL not in hass.data[DATA_EXTRA_MODULE_URL].urls

@@ -82,3 +82,24 @@ async def test_a_frame_after_the_pc_left_is_refused(
     side = WsPeer(await hass_ws_client(hass))
     result = await side.call(frame(app, key=key))
     assert result["error"]["code"] == "not_connected"
+
+
+async def test_a_newer_app_may_send_more(
+    hass: HomeAssistant, hass_ws_client: Any, app_with_pads: FakeApp
+) -> None:
+    """Fields this version doesn't know don't stop a frame or connect."""
+    assert (await app_with_pads.call(frame(app_with_pads, sharper=True)))["success"]
+    other = FakeApp(await hass_ws_client(hass))
+    msg_id = await other.send(
+        {
+            "type": "stream_dock_ha/connect",
+            "protocol": 1,
+            "app_version": "9.0.0",
+            "instance_id": "3333333333333333",
+            "machine": "4444444444444444",
+            "name": "LATER-PC",
+            "control": False,
+            "something_new": [1, 2],
+        }
+    )
+    assert (await other.result(msg_id))["success"]

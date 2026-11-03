@@ -45,7 +45,7 @@ Keys that open programs or websites, press keys or type text can't be pressed fr
 
 ## The card
 
-The integration adds the card to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download.
+The integration adds the card to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download. It lists the card in the dashboards' resources (or, when those are written in YAML, loads it with every page). The browser checks for a newer card at each page load, so after updating the integration a new card shows with a page refresh; changes to the integration itself still need a restart.
 
 To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream Dock pad**, then pick a pad. The editor also has:
 
