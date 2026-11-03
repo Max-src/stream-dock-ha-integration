@@ -293,7 +293,7 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
     setMiniMonitor(padId, on) { const p = pads.get(padId); p.state = { ...p.state, mini_monitor: on }; sendPad(p); },
     // A Mini Monitor frame (protocol 3.6), as the app sends it: one picture
     // of a screen, laid out over the keys with the screen hidden under the gaps.
-    sendFrame(padId, step = 0) {
+    sendFrame(padId, step = 0, seamless = false) {
       const p = pads.get(padId);
       const [K, G] = [85, 22];
       const keys = p.state.layout.controls.filter((c) => c.type === 'key');
@@ -315,7 +315,7 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
       g.fillText('Mini Monitor', canvas.width / 2, 70);
       const tiles = keys.map((c, i) => ({ name: c.name, x: (i % cols) * (K + G), y: Math.floor(i / cols) * (K + G), w: K, h: K }));
       const data = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-      for (const sub of p.subs) emit(sub, { kind: 'frame', width: canvas.width, height: canvas.height, data, tiles });
+      for (const sub of p.subs) emit(sub, { kind: 'frame', width: canvas.width, height: canvas.height, data, tiles, seamless });
     },
     showAlert(padId, alert) {
       const p = pads.get(padId); p.alert = alert; p.state = { ...p.state, alert: true };

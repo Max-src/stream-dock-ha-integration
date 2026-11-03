@@ -329,6 +329,7 @@ class StreamDockHub:
                 "height": msg["height"],
                 "data": msg["data"],
                 "tiles": msg["tiles"],
+                "seamless": msg.get("seamless", False),
             },
         )
 

@@ -18,7 +18,7 @@ async def test_connect_success(
     result = await app.connect()
     assert result["success"]
     assert result["result"]["protocol"] == 1
-    assert result["result"]["integration_version"] == "0.1.2"
+    assert result["result"]["integration_version"] == "0.1.3"
     # A key for its Mini Monitor frames, and the local address if known.
     assert len(result["result"]["frame_key"]) == 32
     assert "local_url" in result["result"]

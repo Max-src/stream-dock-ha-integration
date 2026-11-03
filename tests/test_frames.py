@@ -44,7 +44,11 @@ async def test_a_frame_reaches_the_cards_from_another_connection(
         "height": 340,
         "data": "AAAA",
         "tiles": TILES,
+        "seamless": False,
     }
+    # One picture across the gaps, when the app asks for it.
+    assert (await side.call(frame(app, seamless=True)))["success"]
+    assert (await card.event(sub, "frame"))["seamless"] is True
 
 
 async def test_a_frame_needs_the_pcs_key_and_its_own_pad(

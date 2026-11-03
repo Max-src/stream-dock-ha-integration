@@ -9,7 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.stream_dock_ha.const import DOMAIN
 
-URL = "/stream_dock_ha/stream-dock-card.js?v=0.1.2"
+URL = "/stream_dock_ha/stream-dock-card.js?v=0.1.3"
 
 
 async def _setup(hass: HomeAssistant, lovelace: dict | None = None) -> MockConfigEntry:

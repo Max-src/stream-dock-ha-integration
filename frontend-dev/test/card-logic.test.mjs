@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   clampScale, chooseScale, keySizePx, computeLayout, mergePictures, humanizeControl,
   pressErrorText, padOverlay, resolvePadId, headerDetail, normaliseConfig, StreamDockCard,
-  retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut, frameParts,
+  retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut, frameParts, frameBox,
 } from '../../custom_components/stream_dock_ha/frontend/stream-dock-card.js';
 import { layout293s, layoutAkp03e, layoutDashboard, bodyWhite, bodyClear } from '../layouts.mjs';
 
@@ -396,4 +396,21 @@ test('frameParts: each key shows its own part of the one picture', () => {
   // A picture exactly one key big.
   assert.deepEqual(frameParts({ width: 85, height: 85, tiles: [{ name: 'k', x: 0, y: 0, w: 85, h: 85 }] }).get('k'),
     { size: '100% 100%', position: '0% 0%' });
+});
+
+test('frameBox: one picture across the gaps covers every control with a part', () => {
+  const layout = computeLayout(layout293s, 0.3);
+  const keys = Array.from({ length: 15 }, (_, i) => ({ name: `key_${i + 1}`, x: 0, y: 0, w: 1, h: 1 }));
+  const box = frameBox(layout, { tiles: keys });
+  const first = layout.items.find((i) => i.name === 'key_1').box;
+  const last = layout.items.find((i) => i.name === 'key_15').box;
+  assert.ok(Math.abs(box.left - first.left) < 1e-9 && Math.abs(box.top - first.top) < 1e-9);
+  assert.ok(Math.abs(box.left + box.width - (last.left + last.width)) < 1e-9);
+  assert.ok(Math.abs(box.top + box.height - (last.top + last.height)) < 1e-9);
+  // With the band too, it reaches the band's right edge.
+  const band = layout.items.find((i) => i.name === 'band_3').box;
+  const wide = frameBox(layout, { tiles: [...keys, { name: 'band_3' }] });
+  assert.ok(Math.abs(wide.left + wide.width - (band.left + band.width)) < 1e-9);
+  assert.equal(frameBox(layout, { tiles: [{ name: 'nothing' }] }), null);
+  assert.equal(frameBox(null, null), null);
 });

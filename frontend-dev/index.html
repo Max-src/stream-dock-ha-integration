@@ -133,12 +133,13 @@
     } else if (s === 'offline') {
       control.setOnline(P293, false);
       control.setOnline(PDASH, false);
-    } else if (s === 'mini') {
+    } else if (s === 'mini' || s === 'mini-seamless') {
+      const seamless = s === 'mini-seamless';
       control.setMiniMonitor(P293, true);
       control.setConnected(PAKP, false);
       let step = 0;
-      control.sendFrame(P293, step);
-      setInterval(() => control.sendFrame(P293, ++step), 500);
+      control.sendFrame(P293, step, seamless);
+      setInterval(() => control.sendFrame(P293, ++step, seamless), 500);
     } else if (s === 'alert') {
       control.showAlert(P293, { title: 'Doorbell', message: 'Someone is at the front door' });
       control.showAlert(PDASH, { title: 'Washer', message: 'The laundry is done', color: [33, 150, 243] });

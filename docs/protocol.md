@@ -260,8 +260,11 @@ One Mini Monitor picture of a pad, for the cards showing it: the whole picture a
 { "id": 46, "type": "stream_dock_ha/frame",
   "instance_id": "51ac0e9f7d2b8346", "key": "<frame_key>", "pad_id": "9d04e1b7a2c35f18",
   "width": 557, "height": 349, "data": "<base64 JPEG>",
-  "tiles": [ { "name": "key_1", "x": 0, "y": 0, "w": 85, "h": 85 }, ... ] }
+  "tiles": [ { "name": "key_1", "x": 0, "y": 0, "w": 85, "h": 85 }, ... ],
+  "seamless": false }
 ```
+
+- `seamless: true` follows the app's **One picture across the gaps** setting (Monitor tab): the card then shows the whole picture once over the area of those controls, gaps included, square-edged and in the picture's own proportions, instead of a part on each key. It's optional and `false` when left out.
 
 - The app sends frames only for pads a card is watching (section 4.2), only while that pad's Mini Monitor is on, only when the picture changed, and at most as often as the app's **Mini Monitor on dashboard cards** setting says (5 a second by default).
 - Frames name their PC and its `frame_key` rather than relying on the socket, because they may come on a second connection to `local_url`. The app opens it when `local_url` isn't the address it already uses, and the person allows it. That keeps the pictures on the home network when the app reaches Home Assistant through the internet. While that connection is down, frames go on the usual one.
@@ -336,7 +339,7 @@ It lists every known pad, including pads of PCs that are offline. The card's edi
 
 - `{ "kind": "pad", "online": true, "listed": true, "pc": "DESKTOP-MAX", "pad": PadState }`: first, then on every change. `online` says the PC is connected. `listed` says the pad was in that PC's latest `state` (false when the person removed it from the app). When the PC goes away, `online: false` comes with the last known `pad`.
 - `{ "kind": "pictures", "complete": true, "scale": 2, "pictures": { "key_1": { "hash": "...", "data": "..." }, ... } }`: first the full set the integration holds (if any), then whatever the app sends.
-- `{ "kind": "frame", "width": 557, "height": 349, "data": "<base64 JPEG>", "tiles": [...] }`: a Mini Monitor picture, as in section 3.6. The card shows each control's part of it over its key, while the pad's `mini_monitor` is `true`, and goes back to the key pictures when frames stop for 3 seconds.
+- `{ "kind": "frame", "width": 557, "height": 349, "data": "<base64 JPEG>", "tiles": [...], "seamless": false }`: a Mini Monitor picture, as in section 3.6. The card shows each control's part of it over its key, while the pad's `mini_monitor` is `true`, and goes back to the key pictures when frames stop for 3 seconds.
 
 - The `scale` of pictures can differ from the one asked for: the app draws at the largest scale any card wants, and the integration's cache can hold an older scale until the new set arrives. Cards show whatever arrives, sized to fit.
 - A big update can come in several `pictures` events, so a pad may look half-updated for a moment.

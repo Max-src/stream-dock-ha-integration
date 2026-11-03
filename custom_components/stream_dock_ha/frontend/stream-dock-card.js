@@ -9,7 +9,7 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.2';
+const CARD_VERSION = '0.1.3';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -235,6 +235,21 @@ export function frameParts(frame) {
   return parts;
 }
 
+/**
+ * The box, in percent of the pad body, that one Mini Monitor picture covers
+ * when it goes across the gaps: every control that has a part of it.
+ */
+export function frameBox(layout, frame) {
+  const names = new Set((frame && Array.isArray(frame.tiles) ? frame.tiles : []).map((t) => t && t.name));
+  const boxes = ((layout && layout.items) || []).filter((item) => names.has(item.name)).map((item) => item.box);
+  if (!boxes.length) return null;
+  const left = Math.min(...boxes.map((b) => b.left));
+  const top = Math.min(...boxes.map((b) => b.top));
+  const right = Math.max(...boxes.map((b) => b.left + b.width));
+  const bottom = Math.max(...boxes.map((b) => b.top + b.height));
+  return { left, top, width: right - left, height: bottom - top };
+}
+
 export function mergePictures(prev, event) {
   const before = prev instanceof Map ? prev : new Map();
   const complete = !!(event && event.complete);
@@ -440,6 +455,12 @@ ha-card:not(:defined) {
 .mm { position: absolute; inset: 0; background-image: var(--mm); background-repeat: no-repeat;
   pointer-events: none; display: none; }
 .pad.mini .mm { display: block; }
+/* Across the gaps: one picture, square-edged, in the screen's proportions. */
+.mm-whole { position: absolute; display: none; pointer-events: none; z-index: 1;
+  background-image: var(--mm); background-repeat: no-repeat; background-size: contain; background-position: center; }
+.pad.mini.seamless .mm-whole { display: block; }
+.pad.mini.seamless .mm { display: none; }
+.pad.mini.seamless .covered { visibility: hidden; }
 .key.down { transform: scale(.92); filter: brightness(.82); transition-duration: .05s; }
 
 .button {
@@ -938,8 +959,10 @@ export class StreamDockCard extends Base {
     if (tiles !== this._frameTiles) {
       this._frameTiles = tiles;
       this._frameParts = frameParts(event);
+      this._frameMeta = { tiles: event.tiles || [] };
       this._placeFrameParts();
     }
+    this._padEl.classList.toggle('seamless', event.seamless === true);
     let url;
     try {
       const bytes = Uint8Array.from(atob(event.data), (c) => c.charCodeAt(0));
@@ -968,8 +991,25 @@ export class StreamDockCard extends Base {
   /** Gives each key its part of the picture, with a layer to show it in. */
   _placeFrameParts() {
     const parts = this._frameParts || new Map();
+    // The one picture across the gaps, over all those keys.
+    let whole = this._padEl.querySelector(':scope > .mm-whole');
+    const box = this._frameMeta && frameBox(this._layout, this._frameMeta);
+    if (!box) { if (whole) whole.remove(); } else {
+      if (!whole) {
+        whole = document.createElement('div');
+        whole.className = 'mm-whole';
+        this._padEl.appendChild(whole);
+      }
+      whole.style.left = `${box.left}%`;
+      whole.style.top = `${box.top}%`;
+      whole.style.width = `${box.width}%`;
+      whole.style.height = `${box.height}%`;
+    }
+    let bandCovered = false;
     for (const [name, entry] of this._els) {
       const part = parts.get(name);
+      entry.el.classList.toggle('covered', !!part);
+      if (part && entry.item && entry.item.kind === 'band') bandCovered = true;
       let layer = entry.el.querySelector(':scope > .mm');
       if (!part) { if (layer) layer.remove(); continue; }
       if (!layer) {
@@ -980,6 +1020,8 @@ export class StreamDockCard extends Base {
       layer.style.backgroundSize = part.size;
       layer.style.backgroundPosition = part.position;
     }
+    const strip = this._padEl.querySelector(':scope > .strip');
+    if (strip) strip.classList.toggle('covered', bandCovered);
   }
 
   _clearFrame() {
@@ -989,7 +1031,7 @@ export class StreamDockCard extends Base {
     if (this._frameUrl) URL.revokeObjectURL(this._frameUrl);
     this._frameUrl = null;
     if (this._built) {
-      this._padEl.classList.remove('mini');
+      this._padEl.classList.remove('mini', 'seamless');
       this._frame.style.removeProperty('--mm');
       if (had) this._renderChrome();
     }

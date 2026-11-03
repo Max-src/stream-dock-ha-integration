@@ -26,6 +26,7 @@ const shots = [
   ['update', '?shots&s=update', '1340,470'],
   ['offline', '?shots&s=offline', '1340,470'],
   ['mini-unplugged', '?shots&s=mini', '1340,470'],
+  ['mini-seamless', '?shots&s=mini-seamless', '1340,470'],
   ['alert', '?shots&s=alert', '1340,470'],
   ['screen-off', '?shots&s=screenoff', '1340,470'],
   ['press-errors', '?shots&s=error', '1340,470'],

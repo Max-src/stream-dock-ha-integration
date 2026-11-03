@@ -301,6 +301,7 @@ def ws_pressed(
                 }
             )
         ],
+        probatio.Optional("seamless", default=False): bool,
     }
 )
 @callback
