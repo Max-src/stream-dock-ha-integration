@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
+from .card import async_list_card, async_unlist_card
 from .const import (
     CARD_URL,
     DOMAIN,
@@ -53,7 +54,9 @@ async def _async_register_card(hass: HomeAssistant, version: str) -> None:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(URL_BASE, str(FRONTEND_DIR), cache_headers=False)]
     )
-    add_extra_js_url(hass, f"{CARD_URL}?v={version}")
+    url = f"{CARD_URL}?v={version}"
+    add_extra_js_url(hass, url)
+    await async_list_card(hass, url)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: StreamDockConfigEntry) -> bool:
@@ -75,6 +78,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: StreamDockConfigEntry) 
 async def async_remove_entry(hass: HomeAssistant, entry: StreamDockConfigEntry) -> None:
     """Delete what was stored when the integration is removed."""
     await Store[dict](hass, STORAGE_VERSION, STORAGE_KEY).async_remove()
+    await async_unlist_card(hass)
 
 
 async def async_remove_config_entry_device(
