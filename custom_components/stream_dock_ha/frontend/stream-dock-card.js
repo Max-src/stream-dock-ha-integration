@@ -9,7 +9,7 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.5';
+const CARD_VERSION = '0.1.6';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -424,6 +424,13 @@ ha-card.plain .header { padding: 0 2px 8px; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.16),
     0 1px 2px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.14);
 }
+/* A light front, like the white 293S: flat, with a fine edge so it still
+   stands out on a light page, and only a faint shadow under it and its keys. */
+.pad.painted.light {
+  background: var(--front);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.09), 0 1px 3px rgba(0,0,0,.07);
+}
+.pad.light .key, .pad.light .strip { box-shadow: 0 0 0 1px rgba(0,0,0,.05); }
 /* No front: only an outline shows where the pad is, as in the app. */
 .pad.clear {
   background: none; box-shadow: none;
