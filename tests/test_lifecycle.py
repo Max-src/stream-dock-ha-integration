@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.diagnostics import (
     get_diagnostics_for_config_entry,
@@ -113,7 +114,7 @@ async def test_loads_from_storage(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    assert get_device(hass, PAD_1).via_device_id == get_device(hass, INSTANCE_1).id
+    assert get_device(hass, PAD_1).parent_device_id == get_device(hass, INSTANCE_1).id
     assert (
         hass.states.get(entity_id(hass, "light", f"{PAD_1}_screen")).state
         == STATE_UNAVAILABLE
@@ -122,6 +123,49 @@ async def test_loads_from_storage(
         hass.states.get(entity_id(hass, "binary_sensor", f"{INSTANCE_1}_online")).state
         == "off"
     )
+
+
+async def test_a_pad_device_from_before_becomes_a_child_of_its_pc(
+    hass: HomeAssistant, hass_storage: dict[str, Any], config_entry: MockConfigEntry
+) -> None:
+    """A pad that was a device of its own keeps its id, now under its PC."""
+    hass_storage[DOMAIN] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": DOMAIN,
+        "data": {
+            "pcs": {
+                INSTANCE_1: {
+                    "instance_id": INSTANCE_1,
+                    "machine": MACHINE_1,
+                    "name": "DESKTOP-MAX",
+                }
+            },
+            "pads": {PAD_1: {"instance_id": INSTANCE_1, "state": pad_state()}},
+        },
+    }
+    config_entry.add_to_hass(hass)
+    registry = dr.async_get(hass)
+    pc = registry.async_get_or_create(
+        config_entry_id=config_entry.entry_id,
+        identifiers={(DOMAIN, INSTANCE_1)},
+        name="DESKTOP-MAX",
+    )
+    old = registry.async_get_or_create(
+        config_entry_id=config_entry.entry_id,
+        identifiers={(DOMAIN, PAD_1)},
+        manufacturer="Mirabox",
+        name="Desk pad",
+        via_device_id=pc.id,
+    )
+    # As after a restart: the devices are known, nothing has set them up yet.
+    registry._live_device_ids.clear()
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    pad = get_device(hass, PAD_1)
+    assert (pad.id, pad.parent_device_id) == (old.id, pc.id)
+    assert registry.async_get(old.id) is pad
+    assert entity_id(hass, "light", f"{PAD_1}_screen") is not None
 
 
 async def test_two_pcs(
@@ -136,8 +180,7 @@ async def test_two_pcs(
     )
     await hass.async_block_till_done()
 
-    assert get_device(hass, PAD_2).manufacturer == "AJAZZ"
-    assert get_device(hass, PAD_2).via_device_id == get_device(hass, INSTANCE_2).id
+    assert get_device(hass, PAD_2).parent_device_id == get_device(hass, INSTANCE_2).id
 
     # A card on the laptop's pad changes only the laptop's watch.
     card = WsPeer(await hass_ws_client(hass))

@@ -221,7 +221,10 @@ test('headerDetail', () => {
 });
 
 test('normaliseConfig', () => {
-  assert.deepEqual(normaliseConfig({ pad_id: 'x' }), { pad_id: 'x', show_name: true, show_profile: true });
+  assert.deepEqual(normaliseConfig({ pad_id: 'x' }), { pad_id: 'x', show_name: true, show_profile: true, show_card_background: true });
+  assert.equal(normaliseConfig({ show_card_background: false }).show_card_background, false);
+  assert.equal(normaliseConfig({ title: 'Desk' }).title, 'Desk');
+  assert.equal('title' in normaliseConfig({ title: '  ' }), false);
   assert.equal(normaliseConfig({ pad_id: 'x', scale: '3' }).scale, 3);
   assert.equal('scale' in normaliseConfig({ pad_id: 'x', scale: '' }), false);
   assert.throws(() => normaliseConfig({ pad_id: 'x', scale: 5 }));
@@ -232,7 +235,13 @@ test('normaliseConfig', () => {
 
 test('config form and Lovelace hooks', () => {
   const form = StreamDockCard.getConfigForm();
-  const device = form.schema.find((s) => s.name === 'device_id');
+  // Sections, as the other cards have, each opening in place.
+  assert.deepEqual(form.schema.map((s) => [s.type, s.title]), [['expandable', 'Pad'], ['expandable', 'Appearance'], ['expandable', 'Pictures']]);
+  assert.ok(form.schema.every((s) => s.flatten === true));
+  const fields = form.schema.flatMap((s) => s.schema);
+  assert.deepEqual(fields.map((f) => f.name), ['device_id', 'title', 'show_card_background', 'show_name', 'show_profile', 'scale']);
+  assert.ok(fields.every((f) => typeof form.computeLabel(f) === 'string'));
+  const device = fields.find((s) => s.name === 'device_id');
   assert.deepEqual(device.selector.device.filter, [{ integration: 'stream_dock_ha' }]);
   assert.equal(device.selector.device.entity[0].domain, 'select');
   const stub = StreamDockCard.getStubConfig({ entities: {
@@ -413,4 +422,27 @@ test('frameBox: one picture across the gaps covers every control with a part', (
   assert.ok(Math.abs(wide.left + wide.width - (band.left + band.width)) < 1e-9);
   assert.equal(frameBox(layout, { tiles: [{ name: 'nothing' }] }), null);
   assert.equal(frameBox(null, null), null);
+});
+
+test('a card nobody can see watches nothing, so nothing is streamed to it', async () => {
+  let subscribed = 0;
+  let unsubscribed = 0;
+  const conn = {
+    connected: true,
+    addEventListener() {},
+    removeEventListener() {},
+    subscribeMessage: async () => { subscribed += 1; return async () => { unsubscribed += 1; }; },
+  };
+  const card = headlessCard({ pad_id: 'p1' });
+  card._hass = { connection: conn };
+  card._inView = false;
+  await card._doSync();
+  assert.equal(subscribed, 0, 'scrolled out of view: no watch');
+  card._inView = true;
+  await card._doSync();
+  assert.equal(subscribed, 1, 'in view: it watches');
+  card._inView = false;
+  await card._doSync();
+  assert.equal(unsubscribed, 1, 'out of view again: the watch ends');
+  assert.equal(card._watch, null);
 });

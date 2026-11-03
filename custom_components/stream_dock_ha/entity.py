@@ -6,7 +6,7 @@ from collections.abc import Callable, Hashable, Iterable
 from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import ChildDeviceInfo, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -74,7 +74,9 @@ class StreamDockEntity(Entity):
         self.hub = hub
         self._attr_unique_id = f"{device_key}_{key}"
         self._attr_translation_key = key
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, device_key)})
+        self._attr_device_info: DeviceInfo | ChildDeviceInfo = DeviceInfo(
+            identifiers={(DOMAIN, device_key)}
+        )
         self._last_key: Hashable = None
 
     @property
@@ -107,6 +109,12 @@ class StreamDockPadEntity(StreamDockEntity):
         super().__init__(hub, pad_id, key)
         self.pad_id = pad_id
         self.pad: Pad = hub.pads[pad_id]
+        # A pad is a child device of its PC (see the hub).
+        parent = hub.pc_of(self.pad).device_id
+        if parent is not None:
+            self._attr_device_info = ChildDeviceInfo(
+                identifiers={(DOMAIN, pad_id)}, parent_device_id=parent
+            )
 
     @property
     def pad_state(self) -> dict[str, Any]:

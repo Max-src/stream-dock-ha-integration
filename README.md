@@ -35,7 +35,7 @@ Go to **Settings > Devices & services**, choose **Add integration** and pick **S
 2. Tick **Let Home Assistant control this app**.
 3. Leave **Show this PC in the Stream Dock HA integration** ticked, as it is at first. You can change the PC's name there; Home Assistant follows it.
 
-The line under them should read **Integration: connected as** the PC's name. The PC and its pads then appear under **Settings > Devices & services > Stream Dock HA**. If the line says something else, see [Troubleshooting](#troubleshooting).
+The line under them should read **Integration: connected as** the PC's name. The PC then appears under **Settings > Devices & services > Stream Dock HA**, with each of its pads under it. If the line says something else, see [Troubleshooting](#troubleshooting).
 
 Keys that open programs or websites, press keys or type text can't be pressed from Home Assistant until you allow it: in the app, select the key and set its **Pressing from Home Assistant** to **Always**. Home Assistant can't change that setting.
 
@@ -47,19 +47,24 @@ Keys that open programs or websites, press keys or type text can't be pressed fr
 
 The integration adds the card to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download. It lists the card in the dashboards' resources (or, when those are written in YAML, loads it with every page). The browser checks for a newer card at each page load, so after updating the integration a new card shows with a page refresh; changes to the integration itself still need a restart.
 
-To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream Dock pad**, then pick a pad. The editor also has:
+To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream Dock pad**, then pick a pad. The editor's settings are in three sections:
 
-| Setting | What it does |
-| --- | --- |
-| Show name | The pad's name above the keys. On by default |
-| Show profile | The profile and page it's showing. On by default |
-| Picture scale | 1 to 3. Leave it empty to match the screen |
+| Section | Setting | What it does |
+| --- | --- | --- |
+| Pad | Pad | Which pad the card shows |
+| Pad | Card title | Shown above the keys instead of the pad's name. Optional |
+| Appearance | Show card background | Off: no frame round the card, and the pad uses all the room. On by default |
+| Appearance | Show the title | The title (or pad name) above the keys. On by default |
+| Appearance | Show the profile and page | What the pad is showing. On by default |
+| Pictures | Picture scale | 1 to 3. Leave it empty to match the screen |
 
 Or in YAML:
 
 ```yaml
 type: custom:stream-dock-card
 device_id: <the pad's device id>
+title: Desk
+show_card_background: true
 show_name: true
 show_profile: true
 scale: 2
@@ -67,7 +72,7 @@ scale: 2
 
 `pad_id` works instead of `device_id`. Only `device_id` or `pad_id` is needed.
 
-The card shows the pad's keys as the pad shows them, live, alerts included. Tap a key to press it. Pads of a PC that's off are shown dimmed, with their last pictures, and can't be pressed.
+The card shows the pad's keys as the pad shows them, live, alerts included. Tap a key to press it. Pads of a PC that's off are shown dimmed, with their last pictures, and can't be pressed. A card only follows its pad while it can be seen: in a hidden browser tab, or scrolled well out of view, it keeps its last pictures and nothing is sent to it.
 
 With Mini Monitor on, the card shows the PC screen across the pad's keys, as the pad does. The app sends a few pictures a second, only while a card shows that pad; set how many in the app's **Settings > Home Assistant**. When the app reaches Home Assistant through the internet, it sends those pictures straight to Home Assistant's local address instead (**Settings > System > Network** in Home Assistant), if it has one.
 

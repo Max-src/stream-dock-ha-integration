@@ -16,7 +16,6 @@ from homeassistant.helpers.storage import Store
 from .const import (
     DOMAIN,
     EVENT_PRESSED,
-    MANUFACTURERS,
     NAME,
     READ_ONLY_COMMANDS,
     REQUEST_TIMEOUT,
@@ -459,7 +458,6 @@ class StreamDockHub:
     @callback
     def async_remove_device(self, device: dr.DeviceEntry) -> bool:
         """Forget a pad or PC, unless it's connected now."""
-        registry = dr.async_get(self.hass)
         for domain, identifier in device.identifiers:
             if domain != DOMAIN:
                 continue
@@ -471,14 +469,12 @@ class StreamDockHub:
                 if pc.online:
                     return False
                 del self.pcs[identifier]
+                # Its pads go with it: Home Assistant removes a device's
+                # child devices with it.
                 for pad in [
                     p for p in self.pads.values() if p.instance_id == identifier
                 ]:
                     del self.pads[pad.pad_id]
-                    if pad.device_id is not None:
-                        registry.async_update_device(
-                            pad.device_id, remove_config_entry_id=self.entry.entry_id
-                        )
         self._schedule_save()
         return True
 
@@ -548,14 +544,20 @@ class StreamDockHub:
         pc.device_id = device.id
 
     def _ensure_pad_device(self, pad: Pad) -> None:
+        """A pad is a child device of its PC's device, as the PC's parts are.
+
+        A pad that was a device of its own is turned into one, keeping its id,
+        so its entities, automations and cards carry on.
+        """
         pc = self.pc_of(pad)
-        device = dr.async_get(self.hass).async_get_or_create(
+        if pc.device_id is None:
+            self._ensure_pc_device(pc)
+        assert pc.device_id is not None
+        device = dr.async_get(self.hass).async_get_or_create_child(
             config_entry_id=self.entry.entry_id,
             identifiers={(DOMAIN, pad.pad_id)},
-            manufacturer=MANUFACTURERS.get(pad.kind, NAME),
-            model=pad.state.get("model"),
             name=pad.name,
-            **({"via_device_id": pc.device_id} if pc.device_id else {}),
+            parent_device_id=pc.device_id,
         )
         pad.device_id = device.id
 

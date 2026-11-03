@@ -333,7 +333,16 @@ def entity_id(hass: HomeAssistant, platform: str, unique_id: str) -> str:
     return found
 
 
-def get_device(hass: HomeAssistant, identifier: str) -> dr.DeviceEntry | None:
-    """Return this integration's device with an identifier."""
-    devices = dr.async_get(hass).async_get_devices(identifiers={(DOMAIN, identifier)})
-    return devices[0] if devices else None
+def get_device(hass: HomeAssistant, identifier: str) -> Any:
+    """Return this integration's device with an identifier: a PC, or a pad,
+    which is a child device of its PC."""
+    registry = dr.async_get(hass)
+    devices = registry.async_get_devices(identifiers={(DOMAIN, identifier)})
+    if devices:
+        return devices[0]
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if child := registry.async_get_child_device_by_identifier(
+            (DOMAIN, identifier), entry.entry_id
+        ):
+            return child
+    return None

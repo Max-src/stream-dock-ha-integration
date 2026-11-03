@@ -9,7 +9,7 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.4';
+const CARD_VERSION = '0.1.5';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -358,6 +358,8 @@ export function normaliseConfig(config) {
   }
   out.show_name = out.show_name !== false;
   out.show_profile = out.show_profile !== false;
+  out.show_card_background = out.show_card_background !== false;
+  if (typeof out.title !== 'string' || !out.title.trim()) delete out.title;
   // Cards saved before 0.1.2 may still say whether to vibrate.
   delete out.haptic;
   return out;
@@ -378,6 +380,10 @@ ha-card:not(:defined) {
   color: var(--primary-text-color);
 }
 .wrap { padding: 12px; position: relative; }
+/* No card background: no frame, and the pad takes all the room. */
+ha-card.plain { background: transparent; border: none; box-shadow: none; }
+ha-card.plain .wrap { padding: 0; }
+ha-card.plain .header { padding: 0 2px 8px; }
 .header {
   display: flex; align-items: baseline; gap: 8px; padding: 0 4px 10px;
   font-family: var(--ha-card-header-font-family, inherit);
@@ -584,34 +590,62 @@ export class StreamDockCard extends Base {
     return {
       schema: [
         {
-          name: 'device_id',
-          required: true,
-          selector: {
-            device: {
-              filter: [{ integration: 'stream_dock_ha' }],
-              entity: [{ domain: 'select', integration: 'stream_dock_ha' }],
+          type: 'expandable',
+          name: '',
+          flatten: true,
+          expanded: true,
+          title: 'Pad',
+          icon: 'mdi:view-grid-outline',
+          schema: [
+            {
+              name: 'device_id',
+              required: true,
+              selector: {
+                device: {
+                  filter: [{ integration: 'stream_dock_ha' }],
+                  entity: [{ domain: 'select', integration: 'stream_dock_ha' }],
+                },
+              },
             },
-          },
+            { name: 'title', selector: { text: {} } },
+          ],
         },
         {
-          type: 'grid',
+          type: 'expandable',
           name: '',
+          flatten: true,
+          title: 'Appearance',
+          icon: 'mdi:palette-outline',
           schema: [
+            { name: 'show_card_background', selector: { boolean: {} } },
             { name: 'show_name', selector: { boolean: {} } },
             { name: 'show_profile', selector: { boolean: {} } },
           ],
         },
-        { name: 'scale', selector: { number: { min: 1, max: 3, step: 1, mode: 'box' } } },
+        {
+          type: 'expandable',
+          name: '',
+          flatten: true,
+          title: 'Pictures',
+          icon: 'mdi:image-outline',
+          schema: [
+            { name: 'scale', selector: { number: { min: 1, max: 3, step: 1, mode: 'box' } } },
+          ],
+        },
       ],
       computeLabel: (s) => ({
         device_id: 'Pad',
-        show_name: 'Show name',
-        show_profile: 'Show profile',
+        title: 'Card title (optional)',
+        show_card_background: 'Show card background',
+        show_name: 'Show the title',
+        show_profile: 'Show the profile and page',
         scale: 'Picture scale (empty: automatic)',
       })[s.name],
-      computeHelper: (s) => (s.name === 'scale'
-        ? 'Leave empty to match the screen. 1 is sharpest on small cards, 3 on big high-DPI screens.'
-        : undefined),
+      computeHelper: (s) => ({
+        title: "Shown above the keys instead of the pad's name.",
+        show_card_background: 'Off: no frame round the card, and the pad uses all the room.',
+        scale: 'Leave empty to match the screen. 1 is sharpest on small cards, 3 on big high-DPI screens.',
+      })[s.name],
     };
   }
 
@@ -621,6 +655,7 @@ export class StreamDockCard extends Base {
       && typeof e.entity_id === 'string' && e.entity_id.startsWith('select.') && e.device_id);
     return {
       device_id: select ? select.device_id : '',
+      show_card_background: true,
       show_name: true,
       show_profile: true,
     };
@@ -667,7 +702,26 @@ export class StreamDockCard extends Base {
       this._ro = new ResizeObserver(() => this._onResize());
       this._ro.observe(this._frame);
     }
+    // Nothing is watched, so nothing streamed, while the card can't be seen:
+    // its browser tab hidden, or the card scrolled well out of view.
+    if (typeof IntersectionObserver !== 'undefined' && !this._io) {
+      this._io = new IntersectionObserver((entries) => {
+        const seen = entries.some((entry) => entry.isIntersecting);
+        if (seen !== this._inView) { this._inView = seen; this._sync(); }
+      }, { rootMargin: '200px' });
+      this._io.observe(this._card);
+    }
+    if (!this._onVisibility) {
+      this._onVisibility = () => this._sync();
+      document.addEventListener('visibilitychange', this._onVisibility);
+    }
     this._sync();
+  }
+
+  /** Whether someone could see the card now. */
+  _seen() {
+    const tabShown = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+    return tabShown && this._inView !== false;
   }
 
   disconnectedCallback() {
@@ -675,6 +729,11 @@ export class StreamDockCard extends Base {
     this._stopWatch();
     this._unbindConnection();
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (this._io) { this._io.disconnect(); this._io = null; this._inView = undefined; }
+    if (this._onVisibility) {
+      document.removeEventListener('visibilitychange', this._onVisibility);
+      this._onVisibility = null;
+    }
     clearTimeout(this._resizeTimer);
     this._releaseDown();
     this._clearFrame();
@@ -699,6 +758,7 @@ export class StreamDockCard extends Base {
           <div class="toast" role="status" aria-live="polite"></div>
         </div>
       </ha-card>`;
+    this._card = root.querySelector('ha-card');
     this._header = root.querySelector('.header');
     this._nameEl = root.querySelector('.name');
     this._detailEl = root.querySelector('.detail');
@@ -759,6 +819,12 @@ export class StreamDockCard extends Base {
     }
 
     if (padId !== this._padId) this._resetPad(padId);
+    if (!this._seen()) {
+      // Keeps the last pictures, and watches again when it can be seen.
+      this._stopWatch();
+      this._clearFrame();
+      return;
+    }
     const scale = this._desiredScale();
     const key = `${padId}|${scale}`;
     if (this._watch && this._watch.conn === conn && this._watch.key === key) return;
@@ -1182,8 +1248,10 @@ export class StreamDockCard extends Base {
     const cfg = this._config;
     const pad = this._pad;
 
-    // Header
-    const name = (pad && pad.name) || '';
+    this._card.classList.toggle('plain', cfg.show_card_background === false);
+
+    // Header: the card's own title, or the pad's name.
+    const name = cfg.title || (pad && pad.name) || '';
     const detail = headerDetail(pad, cfg.show_profile);
     const showHeader = (cfg.show_name && !!name) || !!detail;
     this._header.hidden = !showHeader;

@@ -30,11 +30,10 @@ async def test_state_creates_devices_and_entities(
     pad_device = get_device(hass, PAD_1)
     dash_device = get_device(hass, PAD_DASH)
     assert pad_device.name == "Desk pad"
-    assert pad_device.manufacturer == "Mirabox"
-    assert pad_device.model == "Stream Dock 293S"
-    assert pad_device.via_device_id == pc_device.id
-    assert dash_device.manufacturer == "Stream Dock HA"
-    assert dash_device.via_device_id == pc_device.id
+    # Pads are child devices of their PC, shown under it.
+    assert pad_device.parent_device_id == pc_device.id
+    assert dash_device.parent_device_id == pc_device.id
+    assert pc_device.manufacturer == "Stream Dock HA"
 
     registry = er.async_get(hass)
     pad_unique_ids = {
@@ -188,7 +187,7 @@ async def test_renew_pads(
     # The first PC keeps its pad; the second PC gets only its own.
     assert get_device(hass, PAD_1).name == "Desk pad"
     own = get_device(hass, "aaaaaaaaaaaaaaaa")
-    assert own.via_device_id == get_device(hass, INSTANCE_2).id
+    assert own.parent_device_id == get_device(hass, INSTANCE_2).id
 
 
 async def test_invalid_state_is_refused(hass: HomeAssistant, app: FakeApp) -> None:
