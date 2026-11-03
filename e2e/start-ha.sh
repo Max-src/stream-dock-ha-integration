@@ -28,10 +28,10 @@ mkdir -p "$CONF/custom_components"
 ln -sfn "$REPO/custom_components/stream_dock_ha" "$CONF/custom_components/stream_dock_ha"
 cp "$REPO/e2e/configuration.yaml" "$CONF/configuration.yaml"
 
-nohup "$PY" -m homeassistant -c "$CONF" --skip-pip-packages stream_dock_ha > "$ROOT/hass.log" 2>&1 &
+nohup "$PY" -m homeassistant -c "$CONF" --skip-pip > "$ROOT/hass.log" 2>&1 &
 echo $! > "$ROOT/hass.pid"
 
-for _ in $(seq 1 120); do
+for _ in $(seq 1 300); do
     if curl -s -o /dev/null "http://127.0.0.1:8124/manifest.json"; then
         echo "Home Assistant is up on http://127.0.0.1:8124"
         exit 0

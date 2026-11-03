@@ -1,9 +1,10 @@
 // Unit tests for the card's pure logic. Run: node --test frontend-dev/test
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   clampScale, chooseScale, keySizePx, computeLayout, mergePictures, humanizeControl,
   pressErrorText, padOverlay, resolvePadId, headerDetail, normaliseConfig, StreamDockCard,
+  retryDelayMs, RETRY_DELAYS_MS,
 } from '../../custom_components/stream_dock_ha/frontend/stream-dock-card.js';
 import { layout293s, layoutAkp03e, layoutDashboard } from '../layouts.mjs';
 
@@ -193,4 +194,135 @@ test('config form and Lovelace hooks', () => {
   } });
   assert.equal(stub.device_id, 'dev9');
   assert.equal(StreamDockCard.getStubConfig(undefined).device_id, '');
+});
+
+test('retryDelayMs: 2 s, 5 s, 15 s, 30 s, then every 30 s', () => {
+  assert.deepEqual(RETRY_DELAYS_MS, [2000, 5000, 15000, 30000]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 50].map(retryDelayMs), [2000, 5000, 15000, 30000, 30000, 30000, 30000]);
+  assert.equal(retryDelayMs(-1), 2000);
+  assert.equal(retryDelayMs(undefined), 2000);
+  assert.equal(retryDelayMs(NaN), 2000);
+  assert.equal(retryDelayMs(1.7), 5000);
+});
+
+// A card without a DOM: enough for the connection logic.
+function headlessCard(config) {
+  const card = new StreamDockCard();
+  Object.defineProperty(card, 'isConnected', { value: true, configurable: true });
+  card._config = normaliseConfig(config);
+  card.syncs = 0;
+  card._sync = () => { card.syncs += 1; };
+  return card;
+}
+
+test('a failed device lookup is retried with backoff, not cached', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  let calls = 0;
+  let fail = true;
+  const conn = {
+    connected: true,
+    sendMessagePromise: async () => {
+      calls += 1;
+      if (fail) throw { code: 'not_set_up', message: 'Add the integration' };
+      return { pads: [{ pad_id: 'p1', device_id: 'd1' }] };
+    },
+  };
+  const card = headlessCard({ device_id: 'd1' });
+  card._hass = { connection: conn };
+
+  assert.equal(await card._resolveDevice(conn, 'd1'), null);
+  assert.equal(calls, 1);
+  // While the retry is pending, hass updates don't ask again.
+  assert.equal(await card._resolveDevice(conn, 'd1'), null);
+  assert.equal(calls, 1);
+
+  mock.timers.tick(1999);
+  assert.equal(card.syncs, 0);
+  mock.timers.tick(1);
+  assert.equal(card.syncs, 1, 'retried after 2 s');
+  assert.equal(card._device, null, 'the failed lookup was dropped');
+
+  // Second failure: the next try waits 5 s.
+  assert.equal(await card._resolveDevice(conn, 'd1'), null);
+  assert.equal(calls, 2);
+  mock.timers.tick(4999);
+  assert.equal(card.syncs, 1);
+  mock.timers.tick(1);
+  assert.equal(card.syncs, 2, 'retried after 5 s more');
+
+  fail = false;
+  assert.equal(await card._resolveDevice(conn, 'd1'), 'p1');
+  assert.equal(calls, 3);
+  assert.equal(await card._resolveDevice(conn, 'd1'), 'p1');
+  assert.equal(calls, 3, 'a good lookup is cached');
+});
+
+test('a device that is not a pad is not cached either', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  let calls = 0;
+  const conn = { connected: true, sendMessagePromise: async () => { calls += 1; return { pads: [] }; } };
+  const card = headlessCard({ device_id: 'd1' });
+  card._hass = { connection: conn };
+  assert.equal(await card._resolveDevice(conn, 'd1'), null);
+  assert.ok(card._retryTimer, 'a retry is scheduled');
+  mock.timers.tick(2000);
+  assert.equal(await card._resolveDevice(conn, 'd1'), null);
+  assert.equal(calls, 2);
+});
+
+test('a failed watch is retried with backoff; success resets it', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  let watches = 0;
+  let fail = true;
+  const conn = {
+    connected: true,
+    subscribeMessage: async () => {
+      watches += 1;
+      if (fail) throw { code: 'not_set_up', message: 'Reloading' };
+      return () => {};
+    },
+  };
+  const card = headlessCard({ pad_id: 'p1', scale: 2 });
+  card._hass = { connection: conn };
+
+  await card._doSync();
+  assert.equal(watches, 1);
+  assert.equal(card._watch.failed, true);
+  await card._doSync(); // a hass update: no new try yet
+  assert.equal(watches, 1);
+
+  mock.timers.tick(2000);
+  assert.equal(card._watch, null, 'the failed watch was dropped');
+  await card._doSync();
+  assert.equal(watches, 2);
+  mock.timers.tick(4999);
+  assert.equal(card._watch.failed, true, 'still waiting for 5 s');
+  mock.timers.tick(1);
+  fail = false;
+  await card._doSync();
+  assert.equal(watches, 3);
+  assert.equal(card._watch.failed, false);
+  assert.equal(card._retryTimer, null);
+  assert.equal(card._retryAttempt, 0, 'backoff reset after success');
+});
+
+test('no pad id stops the watch; leaving the page stops retrying', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const conn = { connected: true, sendMessagePromise: async () => ({ pads: [] }) };
+  const card = headlessCard({ device_id: 'd1' });
+  card._hass = { connection: conn };
+  let stopped = false;
+  card._watch = { conn, key: 'old|2', unsub: () => { stopped = true; }, failed: false };
+  await card._doSync();
+  assert.equal(stopped, true, 'the old watch was ended');
+  assert.equal(card._watch, null);
+  assert.ok(card._retryTimer);
+  card._unbindConnection = () => {};
+  card.disconnectedCallback();
+  assert.equal(card._retryTimer, null);
+  assert.equal(card._retryAttempt, 0);
 });

@@ -8,6 +8,11 @@ blueprint:
   input:
     microphone:
       name: Microphone muted sensor
+      description: >-
+        Pick the PC's "Microphone muted" sensor (its entity id ends in
+        "_microphone_muted"). The list shows this integration's binary sensors,
+        so it also holds each PC's "Online" and each pad's "Connected" sensor:
+        Home Assistant's selector can't narrow it to one kind of sensor here.
       selector:
         entity:
           filter:

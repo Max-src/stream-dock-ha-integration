@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 from typing import Any
 
 from homeassistant.components.websocket_api import ActiveConnection, event_message
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
@@ -64,9 +65,7 @@ class StreamDockHub:
         self.pads: dict[str, Pad] = {}
         self._links: dict[ActiveConnection, str] = {}
         self._pending: dict[str, tuple[str, asyncio.Future[Any]]] = {}
-        self._request_counter = 0
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-        self._unsub_watchers: CALLBACK_TYPE | None = None
 
     # ------------------------------------------------------------------
     # Life cycle
@@ -83,15 +82,13 @@ class StreamDockHub:
             self._ensure_pc_device(pc)
         for pad in self.pads.values():
             self._ensure_pad_device(pad)
-        self._unsub_watchers = self.watchers.async_listen(self._watchers_changed)
+        # Through the entry, so it's removed even when setup fails after this.
+        self.entry.async_on_unload(self.watchers.async_listen(self._watchers_changed))
         for pad in self.pads.values():
             self._send_pad_to_cards(pad)
 
     async def async_unload(self) -> None:
         """End every PC's subscription and save."""
-        if self._unsub_watchers is not None:
-            self._unsub_watchers()
-            self._unsub_watchers = None
         for pc in self.pcs.values():
             if pc.link is not None:
                 pc.link.connection.subscriptions.pop(pc.link.msg_id, None)
@@ -127,12 +124,15 @@ class StreamDockHub:
 
     @staticmethod
     def pictures_event(pad: Pad) -> dict[str, Any] | None:
-        """Return the card's `pictures` event with every cached picture."""
+        """Return the card's `pictures` event with every cached picture.
+
+        It's `complete` only if the cache holds a complete set from the app.
+        """
         if pad.pictures is None:
             return None
         return {
             "kind": "pictures",
-            "complete": True,
+            "complete": pad.pictures.complete,
             "scale": pad.pictures.scale,
             "pictures": dict(pad.pictures.pictures),
         }
@@ -148,7 +148,8 @@ class StreamDockHub:
         instance_id: str = msg["instance_id"]
         machine: str = msg["machine"]
         pc = self.pcs.get(instance_id)
-        if pc is not None and pc.machine != machine:
+        if (pc is not None and pc.machine != machine) or instance_id in self.pads:
+            # PC and pad ids share one space (protocol section 7).
             raise RenewInstanceError
 
         # The same socket connecting again as another PC drops the first one.
@@ -169,6 +170,8 @@ class StreamDockHub:
             old = pc.link
             old.connection.subscriptions.pop(old.msg_id, None)
             self._links.pop(old.connection, None)
+            # Requests sent on the old connection will never be answered.
+            self._fail_pending(pc.instance_id)
 
         pc.name = msg["name"]
         pc.control = msg["control"]
@@ -243,8 +246,12 @@ class StreamDockHub:
         for state in states:
             pad_id: str = state["id"]
             pad = self.pads.get(pad_id)
-            if pad is not None and pad.instance_id != pc.instance_id:
-                renew.append(pad_id)
+            if (
+                pad is not None and pad.instance_id != pc.instance_id
+            ) or pad_id in self.pcs:
+                # Another PC's pad, or a PC's id: ids share one space.
+                if pad_id not in renew:
+                    renew.append(pad_id)
             elif pad_id in seen:
                 continue
             elif pad is None:
@@ -258,6 +265,9 @@ class StreamDockHub:
                     pad.state.get(key) != state.get(key)
                     for key in ("name", "model", "kind")
                 )
+                if _layout_version(pad.state) != _layout_version(state):
+                    # The app sends a complete set for the new layout.
+                    pad.pictures = None
                 pad.state = state
                 pad.listed = True
                 if device_changed:
@@ -300,13 +310,17 @@ class StreamDockHub:
         pad = self._own_pad(self._pc_for(connection), msg["pad_id"])
         scale: int = msg["scale"]
         complete: bool = msg["complete"]
-        pictures: dict[str, dict[str, str] | None] = msg["pictures"]
+        screen = set(pad.screen_controls)
+        # Only the layout's screen controls are kept or passed on.
+        pictures: dict[str, dict[str, str] | None] = {
+            name: picture for name, picture in msg["pictures"].items() if name in screen
+        }
         cache = pad.pictures
         if complete or cache is None or cache.scale != scale:
             base: dict[str, dict[str, str] | None] = (
                 dict.fromkeys(pad.screen_controls) if complete else {}
             )
-            cache = pad.pictures = Pictures(scale, base)
+            cache = pad.pictures = Pictures(scale, base, complete=complete)
         cache.pictures.update(pictures)
         self.watchers.async_send(
             pad.pad_id,
@@ -362,8 +376,10 @@ class StreamDockHub:
         return await self._async_request(pc, pc.link, data)
 
     async def _async_request(self, pc: Pc, link: PcLink, data: dict[str, Any]) -> Any:
-        self._request_counter += 1
-        request_id = f"r-{self._request_counter}"
+        # Random, so a late reply can't answer another request (section 7).
+        request_id = f"r-{secrets.token_hex(8)}"
+        while request_id in self._pending:  # pragma: no cover - 1 in 2**64
+            request_id = f"r-{secrets.token_hex(8)}"
         future: asyncio.Future[Any] = self.hass.loop.create_future()
         self._pending[request_id] = (pc.instance_id, future)
         _LOGGER.debug("Command %s to %s: %s", request_id, pc.instance_id, data)
@@ -464,10 +480,15 @@ class StreamDockHub:
             self._links.pop(pc.link.connection, None)
         pc.link = None
         pc.sent_watch = None
-        for instance_id, future in self._pending.values():
-            if instance_id == pc.instance_id and not future.done():
-                future.set_exception(OfflineError())
+        self._fail_pending(pc.instance_id)
         self._pc_changed(pc, pads_too=True)
+
+    @callback
+    def _fail_pending(self, instance_id: str) -> None:
+        """Fail a PC's pending requests at once with the offline error."""
+        for owner, future in self._pending.values():
+            if owner == instance_id and not future.done():
+                future.set_exception(OfflineError())
 
     @callback
     def _pc_changed(self, pc: Pc, *, pads_too: bool) -> None:
@@ -528,3 +549,8 @@ class StreamDockHub:
                 for pad in self.pads.values()
             },
         }
+
+
+def _layout_version(state: dict[str, Any]) -> Any:
+    layout = state.get("layout")
+    return layout.get("version") if isinstance(layout, dict) else None

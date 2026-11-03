@@ -119,6 +119,34 @@ def _hub_or_error(connection: ActiveConnection, msg_id: int) -> StreamDockHub | 
     return hub
 
 
+def _app_hub_or_error(
+    connection: ActiveConnection, msg_id: int
+) -> StreamDockHub | None:
+    """Return the hub for an app command other than `connect`.
+
+    Without a loaded hub (none set up, or a reload in progress) there can't be
+    a live `connect`, so the app gets `not_connected` and connects again.
+    """
+    if (hub := async_get_hub(connection.hass)) is None:
+        connection.send_error(msg_id, ERR_NOT_CONNECTED, "Send connect first")
+    return hub
+
+
+def _is_admin_or_error(connection: ActiveConnection, msg_id: int) -> bool:
+    """Return whether the user is an administrator, or send `unauthorized`.
+
+    The app's commands need an administrator's token (protocol section 7).
+    """
+    if connection.user is not None and connection.user.is_admin:
+        return True
+    connection.send_error(
+        msg_id,
+        websocket_api.ERR_UNAUTHORIZED,
+        "The integration needs a token from an administrator user",
+    )
+    return False
+
+
 def _send_app_error(connection: ActiveConnection, msg_id: int, err: Exception) -> None:
     if isinstance(err, NotConnectedError):
         connection.send_error(msg_id, ERR_NOT_CONNECTED, "Send connect first")
@@ -149,6 +177,8 @@ def ws_connect(
 ) -> None:
     """Link this connection to a PC (a subscription)."""
     _LOGGER.debug("connect: %s", msg)
+    if not _is_admin_or_error(connection, msg["id"]):
+        return
     if msg["protocol"] != PROTOCOL:
         connection.send_error(
             msg["id"],
@@ -186,7 +216,9 @@ def ws_state(
 ) -> None:
     """Take the app's full state."""
     _LOGGER.debug("state: %s", msg)
-    if (hub := _hub_or_error(connection, msg["id"])) is None:
+    if not _is_admin_or_error(connection, msg["id"]):
+        return
+    if (hub := _app_hub_or_error(connection, msg["id"])) is None:
         return
     try:
         renew = hub.async_state(connection, msg)
@@ -214,7 +246,9 @@ def ws_pressed(
 ) -> None:
     """Announce a press."""
     _LOGGER.debug("pressed: %s", msg)
-    if (hub := _hub_or_error(connection, msg["id"])) is None:
+    if not _is_admin_or_error(connection, msg["id"]):
+        return
+    if (hub := _app_hub_or_error(connection, msg["id"])) is None:
         return
     try:
         hub.async_pressed(connection, msg)
@@ -245,7 +279,9 @@ def ws_pictures(
         msg["complete"],
         len(msg["pictures"]),
     )
-    if (hub := _hub_or_error(connection, msg["id"])) is None:
+    if not _is_admin_or_error(connection, msg["id"]):
+        return
+    if (hub := _app_hub_or_error(connection, msg["id"])) is None:
         return
     try:
         hub.async_pictures(connection, msg)
@@ -270,7 +306,9 @@ def ws_reply(
 ) -> None:
     """Take the answer to a command event."""
     _LOGGER.debug("reply: %s", msg)
-    if (hub := _hub_or_error(connection, msg["id"])) is None:
+    if not _is_admin_or_error(connection, msg["id"]):
+        return
+    if (hub := _app_hub_or_error(connection, msg["id"])) is None:
         return
     try:
         hub.async_reply(connection, msg)

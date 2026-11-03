@@ -80,8 +80,9 @@ Errors (`success: false`, `error.code`):
 | `protocol_mismatch` | Protocol versions differ; `error.message` says which the integration speaks | Logs it, shows "Update the Stream Dock HA integration" or "Update the app" in Settings > Home Assistant, carries on without it |
 | `renew_instance` | Duplicate, see section 2 | New instance and pad ids, then `connect` again on the same socket |
 | `not_set_up` | The integration is installed but has no config entry | Shows "Add the Stream Dock HA integration in Home Assistant's Devices & services" |
+| `unauthorized` | The token isn't an administrator's | Shows "The integration needs a token from an administrator user", and carries on without it |
 
-Any other app command sent on a socket that has no live `connect` gets the error `not_connected`. This happens, for example, after the integration was reloaded, which ends the subscription. The app then sends `connect` again on the same socket.
+Any other app command sent on a socket that has no live `connect` gets the error `not_connected`. This happens, for example, after the integration was reloaded, which ends the subscription. It also happens while the integration is reloading. The app then sends `connect` again on the same socket.
 
 Once the result is in, the subscription stays open. The integration pushes events down it (section 4) until the connection closes. The app sends a full `state` right after a successful `connect`.
 
@@ -353,7 +354,10 @@ These rules apply to every route Home Assistant has into the app (events, action
 - Changing an entity (the profile select, the page number, the screen light, the Mini Monitor switch) follows Home Assistant's usual entity permissions, like any other device.
 - Actions that change things (everything but `get_state`, `get_key` and `snapshot`) are refused with `unauthorized` when they're called by a logged-in user who isn't an administrator. Automations and scripts, which run without a user, are allowed.
 - The card's `press` is allowed for any logged-in user, unless the integration's option **Only administrators can press keys on dashboards** is on.
-- `connect` needs any logged-in user. The integration remembers which HA user each PC connected as, for the log.
+- **The app's commands need an administrator's token:** `connect`, `state`, `pressed`, `pictures` and `reply`. A non-admin user gets `unauthorized`, so nobody can pose as a PC from a dashboard login. The app's event route already needs an admin token, so nothing changes for the person. The integration remembers which HA user each PC connected as, for the log.
+- **PC and pad ids share one space.** `connect` with an `instance_id` that is a known pad id gets `renew_instance`. A `state` listing a pad whose id is a known `instance_id` gets that id back in `renew_pads`.
+- **Request ids are random**, 16 hex characters prefixed `r-`, so they can't be guessed or repeated across reloads.
+- **Only real controls are kept.** The integration keeps pictures only for the layout's `screen` controls, and drops its cache when the layout version changes.
 
 ## 8. What the integration creates
 

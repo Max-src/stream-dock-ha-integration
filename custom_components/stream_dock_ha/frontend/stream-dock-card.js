@@ -215,6 +215,13 @@ export function padOverlay({ online = true, linkDown = false, pad = null } = {})
   return null;
 }
 
+/** How long to wait before retry number `attempt` (0 first) of a failed watch or lookup. */
+export const RETRY_DELAYS_MS = [2000, 5000, 15000, 30000];
+export function retryDelayMs(attempt) {
+  const n = Number.isFinite(attempt) && attempt > 0 ? Math.floor(attempt) : 0;
+  return RETRY_DELAYS_MS[Math.min(n, RETRY_DELAYS_MS.length - 1)];
+}
+
 /** The pad_id a `stream_dock_ha/pads` result gives for a config's device_id, or null. */
 export function resolvePadId(config, padsResult) {
   if (!config) return null;
@@ -435,6 +442,8 @@ export class StreamDockCard extends Base {
     this._down = null;
     this._resizeTimer = null;
     this._ro = null;
+    this._retryTimer = null;
+    this._retryAttempt = 0;
   }
 
   /* ---------- Lovelace API ---------- */
@@ -493,6 +502,7 @@ export class StreamDockCard extends Base {
     this._config = next;
     if (prev && (prev.device_id !== next.device_id || prev.pad_id !== next.pad_id)) {
       this._device = null;
+      this._cancelRetry(true);
     }
     if (this._built) this._renderChrome();
     this._sync();
@@ -531,6 +541,7 @@ export class StreamDockCard extends Base {
   }
 
   disconnectedCallback() {
+    this._cancelRetry(true);
     this._stopWatch();
     this._unbindConnection();
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
@@ -605,7 +616,10 @@ export class StreamDockCard extends Base {
     if (this._config.device_id) {
       padId = await this._resolveDevice(conn, this._config.device_id);
       if (this._hass.connection !== conn || !this.isConnected) return;
-      if (!padId) return; // message already shown
+      if (!padId) { // message already shown; a retry is scheduled
+        this._stopWatch();
+        return;
+      }
     }
     if (!padId) {
       this._stopWatch();
@@ -629,9 +643,11 @@ export class StreamDockCard extends Base {
       );
       if (this._watch !== watch) { safeUnsub(unsub); return; }
       watch.unsub = unsub;
+      this._cancelRetry(true);
     } catch (err) {
       if (this._watch !== watch) return;
-      watch.failed = true; // keep it, so we don't retry on every hass update
+      watch.failed = true; // kept until the retry, so hass updates don't retry at once
+      this._scheduleRetry();
       const code = err && err.code;
       this._showMessage(code === 'not_found'
         ? "This pad isn't known to Home Assistant."
@@ -643,18 +659,23 @@ export class StreamDockCard extends Base {
 
   async _resolveDevice(conn, deviceId) {
     const d = this._device;
-    if (!d || d.conn !== conn || d.deviceId !== deviceId) {
-      const entry = { conn, deviceId, padId: null, promise: null };
+    // A failed or empty lookup is only reused while its retry is pending.
+    if (!d || d.conn !== conn || d.deviceId !== deviceId || (d.failed && !this._retryTimer)) {
+      const entry = { conn, deviceId, padId: null, promise: null, failed: false };
       entry.promise = conn.sendMessagePromise
         ? conn.sendMessagePromise({ type: 'stream_dock_ha/pads' })
         : this._hass.callWS({ type: 'stream_dock_ha/pads' });
       entry.promise = entry.promise.then(
         (result) => {
           entry.padId = resolvePadId({ device_id: deviceId }, result);
-          if (!entry.padId) this._showMessage("This device isn't a Stream Dock pad.", true);
+          if (!entry.padId) {
+            this._lookupFailed(entry);
+            this._showMessage("This device isn't a Stream Dock pad.", true);
+          }
           return entry.padId;
         },
         (err) => {
+          this._lookupFailed(entry);
           const code = err && err.code;
           this._showMessage(code === 'unknown_command'
             ? 'The Stream Dock HA integration is not loaded.'
@@ -667,6 +688,32 @@ export class StreamDockCard extends Base {
     return this._device.promise;
   }
 
+  _lookupFailed(entry) {
+    entry.failed = true;
+    if (this._device === entry) this._scheduleRetry();
+  }
+
+  /* ---------- Retrying a failed watch or lookup, with backoff ---------- */
+
+  _scheduleRetry() {
+    if (this._retryTimer || !this.isConnected) return;
+    const delay = retryDelayMs(this._retryAttempt);
+    this._retryAttempt += 1;
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      if (!this.isConnected) return;
+      if (this._device && this._device.failed) this._device = null;
+      if (this._watch && this._watch.failed) this._watch = null;
+      this._sync();
+    }, delay);
+  }
+
+  _cancelRetry(resetBackoff) {
+    clearTimeout(this._retryTimer);
+    this._retryTimer = null;
+    if (resetBackoff) this._retryAttempt = 0;
+  }
+
   _bindConnection(conn) {
     if (this._conn === conn) return;
     this._unbindConnection();
@@ -674,6 +721,7 @@ export class StreamDockCard extends Base {
     this._device = null;
     this._conn = conn;
     const onReady = () => {
+      this._cancelRetry(true);
       this._linkDown = false;
       this._watch = null; // the old subscription died with the old socket
       this._device = null;

@@ -141,7 +141,7 @@
         },
         "profile": {
           "name": "Profile",
-          "description": "A profile's name. Leave empty for the profile showing."
+          "description": "A profile's name."
         }
       }
     },
@@ -203,7 +203,7 @@
         },
         "profile": {
           "name": "Profile",
-          "description": "A profile's name. Leave empty for the profile showing."
+          "description": "A profile's name."
         }
       }
     },
@@ -217,7 +217,7 @@
         },
         "profile": {
           "name": "Profile",
-          "description": "A profile's name. Leave empty for the profile showing."
+          "description": "A profile's name."
         },
         "name": {
           "name": "Name",

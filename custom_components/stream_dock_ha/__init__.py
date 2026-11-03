@@ -9,10 +9,18 @@ from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
-from .const import CARD_URL, DOMAIN, PLATFORMS, URL_BASE
+from .const import (
+    CARD_URL,
+    DOMAIN,
+    PLATFORMS,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+    URL_BASE,
+)
 from .data import DATA_KEY, StreamDockConfigEntry, StreamDockData
 from .hub import StreamDockHub
 from .services import async_setup_services
@@ -62,6 +70,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: StreamDockConfigEntry) 
     if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         await entry.runtime_data.async_unload()
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: StreamDockConfigEntry) -> None:
+    """Delete what was stored when the integration is removed."""
+    await Store[dict](hass, STORAGE_VERSION, STORAGE_KEY).async_remove()
 
 
 async def async_remove_config_entry_device(

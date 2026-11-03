@@ -82,6 +82,7 @@ rename_profile:
       selector:
         text:
     profile:
+      required: true
       selector:
         text:
 
@@ -97,6 +98,7 @@ duplicate_profile:
             - integration: stream_dock_ha
               domain: select
     profile:
+      required: true
       selector:
         text:
     name:

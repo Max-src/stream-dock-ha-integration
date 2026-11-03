@@ -8,9 +8,14 @@ from typing import Any
 from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util.color import brightness_to_value, value_to_brightness
 
 from .data import StreamDockConfigEntry
 from .entity import StreamDockPadEntity, async_add_pad_entities
+
+# The app's brightness, 1 to 100 while on. HA's 1 to 255 maps onto it, so an
+# "on" brightness is never sent as 0 (a dark screen).
+BRIGHTNESS_SCALE = (1, 100)
 
 PARALLEL_UPDATES = 0
 
@@ -42,10 +47,11 @@ class ScreenLight(StreamDockPadEntity, LightEntity):
 
     @property
     def brightness(self) -> int | None:
-        """Return the brightness, 0 to 100 shown as 0 to 255."""
+        """Return the brightness, 1 to 100 shown as 1 to 255."""
         if (level := self.pad_state.get("brightness")) is None:
             return None
-        return round(level * 255 / 100)
+        # Clamped to 1..255 by the helper: an "on" light never shows 0.
+        return value_to_brightness(BRIGHTNESS_SCALE, level)
 
     def _state_key(self) -> Hashable:
         return (self.available, self.is_on, self.brightness)
@@ -54,9 +60,8 @@ class ScreenLight(StreamDockPadEntity, LightEntity):
         """Turn the screen on, and set its brightness if given."""
         await self._async_command("set_screen", on=True)
         if (brightness := kwargs.get(ATTR_BRIGHTNESS)) is not None:
-            await self._async_command(
-                "set_brightness", level=round(brightness * 100 / 255)
-            )
+            level = round(brightness_to_value(BRIGHTNESS_SCALE, brightness))
+            await self._async_command("set_brightness", level=min(100, max(1, level)))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the screen off."""

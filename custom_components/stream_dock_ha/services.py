@@ -72,10 +72,10 @@ ACTIONS: dict[str, ActionSpec] = {
     "first_profile": ActionSpec(),
     "add_profile": ActionSpec({probatio.Required("name"): cv.string}),
     "rename_profile": ActionSpec(
-        {probatio.Required("name"): cv.string, probatio.Optional("profile"): cv.string}
+        {probatio.Required("name"): cv.string, probatio.Required("profile"): cv.string}
     ),
     "duplicate_profile": ActionSpec(
-        {probatio.Optional("profile"): cv.string, probatio.Optional("name"): cv.string}
+        {probatio.Required("profile"): cv.string, probatio.Optional("name"): cv.string}
     ),
     "delete_profile": ActionSpec({probatio.Required("profile"): cv.string}),
     # Pages

@@ -43,6 +43,8 @@ class Pictures:
 
     scale: int
     pictures: dict[str, dict[str, str] | None] = field(default_factory=dict)
+    # Whether a complete set was received since the cache was last reset.
+    complete: bool = False
 
 
 @dataclass(slots=True)

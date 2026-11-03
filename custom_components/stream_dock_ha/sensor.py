@@ -30,9 +30,20 @@ def _percent(key: str) -> Callable[[dict[str, Any]], Any]:
 
 
 def _timestamp(pc: dict[str, Any]) -> datetime | None:
-    if not (value := pc.get("last_press")):
+    """Return `last_press`, or None if it isn't a time with a time zone.
+
+    A timestamp sensor refuses a naive time when writing its state, which would
+    leave it stuck at the previous value, so anything doubtful becomes unknown.
+    """
+    if not isinstance(value := pc.get("last_press"), str) or not value:
         return None
-    return dt_util.parse_datetime(value)
+    try:
+        parsed = dt_util.parse_datetime(value)
+    except ValueError:
+        return None
+    if parsed is None or parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed
 
 
 @dataclass(frozen=True, kw_only=True)
