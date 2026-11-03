@@ -9,7 +9,7 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.6';
+const CARD_VERSION = '0.1.7';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -381,7 +381,7 @@ ha-card:not(:defined) {
 }
 .wrap { padding: 12px; position: relative; }
 /* No card background: no frame, and the pad takes all the room. */
-ha-card.plain { background: transparent; border: none; box-shadow: none; }
+ha-card.plain { background: transparent; border: none; box-shadow: none; overflow: visible; border-radius: 0; }
 ha-card.plain .wrap { padding: 0; }
 ha-card.plain .header { padding: 0 2px 8px; }
 .header {

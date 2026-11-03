@@ -121,7 +121,8 @@
   if (s === 'selftest') {
     runSelfTest();
   } else {
-    const plain = s === 'plain' ? { show_card_background: false } : {};
+    const plain = s === 'plain' ? { show_card_background: false }
+      : s === 'plain-bare' ? { show_card_background: false, show_name: false, show_profile: false } : {};
     const c293 = addCard({ device_id: 'dev_293s', ...plain }, 500, '293S, by device_id');
     const cAkp = addCard({ pad_id: PAKP }, 400, 'AKP03E, by pad_id');
     const cDash = addCard({ pad_id: PDASH, show_profile: true }, 360, 'Dashboard pad 4 x 2');
