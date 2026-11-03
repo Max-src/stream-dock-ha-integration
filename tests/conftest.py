@@ -198,6 +198,7 @@ class FakeApp(WsPeer):
         self.machine = machine
         self.name = name
         self.sub_id: int | None = None
+        self.frame_key = ""
         self.pads: list[dict[str, Any]] = []
 
     async def connect(
@@ -218,6 +219,7 @@ class FakeApp(WsPeer):
         result = await self.result(msg_id)
         if result["success"]:
             self.sub_id = msg_id
+            self.frame_key = result["result"]["frame_key"]
         return result
 
     async def send_state(

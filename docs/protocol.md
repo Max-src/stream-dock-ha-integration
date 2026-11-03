@@ -69,8 +69,11 @@ Result on success:
 
 ```json
 { "id": 41, "type": "result", "success": true,
-  "result": { "protocol": 1, "integration_version": "0.1.0" } }
+  "result": { "protocol": 1, "integration_version": "0.1.2",
+              "local_url": "http://192.168.1.20:8123", "frame_key": "9f3c…32 hex" } }
 ```
+
+- `local_url` is Home Assistant's address on the home network, or `null` when it doesn't know one. `frame_key` is new for each `connect`. Both are for Mini Monitor frames (section 3.6); an older integration sends neither, and then the app sends no frames.
 
 Errors (`success: false`, `error.code`):
 
@@ -249,6 +252,21 @@ The answer to a command event (section 4.1).
 
 or `"ok": false, "error": "That key opens programs, which Home Assistant isn't allowed to press"`. Result: empty.
 
+### 3.6 `stream_dock_ha/frame`
+
+One Mini Monitor picture of a pad, for the cards showing it: the whole picture as one JPEG, and where each control's part of it is, in its pixels. The parts under the gaps between keys aren't anyone's, as on the pad.
+
+```json
+{ "id": 46, "type": "stream_dock_ha/frame",
+  "instance_id": "51ac0e9f7d2b8346", "key": "<frame_key>", "pad_id": "9d04e1b7a2c35f18",
+  "width": 557, "height": 349, "data": "<base64 JPEG>",
+  "tiles": [ { "name": "key_1", "x": 0, "y": 0, "w": 85, "h": 85 }, ... ] }
+```
+
+- The app sends frames only for pads a card is watching (section 4.2), only while that pad's Mini Monitor is on, only when the picture changed, and at most as often as the app's **Mini Monitor on dashboard cards** setting says (5 a second by default).
+- Frames name their PC and its `frame_key` rather than relying on the socket, because they may come on a second connection to `local_url`. The app opens it when `local_url` isn't the address it already uses, and the person allows it. That keeps the pictures on the home network when the app reaches Home Assistant through the internet. While that connection is down, frames go on the usual one.
+- Errors: `not_connected` when the PC isn't connected or the key is wrong, `not_found` for a pad that isn't that PC's. A frame no card is watching is accepted and dropped. Frames aren't kept.
+
 ## 4. Events the integration sends to the app
 
 They arrive on the `connect` subscription:
@@ -318,6 +336,7 @@ It lists every known pad, including pads of PCs that are offline. The card's edi
 
 - `{ "kind": "pad", "online": true, "listed": true, "pc": "DESKTOP-MAX", "pad": PadState }`: first, then on every change. `online` says the PC is connected. `listed` says the pad was in that PC's latest `state` (false when the person removed it from the app). When the PC goes away, `online: false` comes with the last known `pad`.
 - `{ "kind": "pictures", "complete": true, "scale": 2, "pictures": { "key_1": { "hash": "...", "data": "..." }, ... } }`: first the full set the integration holds (if any), then whatever the app sends.
+- `{ "kind": "frame", "width": 557, "height": 349, "data": "<base64 JPEG>", "tiles": [...] }`: a Mini Monitor picture, as in section 3.6. The card shows each control's part of it over its key, while the pad's `mini_monitor` is `true`, and goes back to the key pictures when frames stop for 3 seconds.
 
 - The `scale` of pictures can differ from the one asked for: the app draws at the largest scale any card wants, and the integration's cache can hold an older scale until the new set arrives. Cards show whatever arrives, sized to fit.
 - A big update can come in several `pictures` events, so a pad may look half-updated for a moment.

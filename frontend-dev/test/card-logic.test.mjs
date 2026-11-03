@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   clampScale, chooseScale, keySizePx, computeLayout, mergePictures, humanizeControl,
   pressErrorText, padOverlay, resolvePadId, headerDetail, normaliseConfig, StreamDockCard,
-  retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut,
+  retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut, frameParts,
 } from '../../custom_components/stream_dock_ha/frontend/stream-dock-card.js';
 import { layout293s, layoutAkp03e, layoutDashboard, bodyWhite, bodyClear } from '../layouts.mjs';
 
@@ -198,6 +198,8 @@ test('padOverlay priorities', () => {
   assert.equal(off.dim, true);
   assert.equal(off.block, false);
   assert.equal(padOverlay({ pad: { ...pad, mini_monitor: true } }).text, 'Mini Monitor is on');
+  // Once its pictures show on the keys, no word is needed.
+  assert.equal(padOverlay({ pad: { ...pad, mini_monitor: true }, frames: true }), null);
   assert.equal(padOverlay({ pad: { ...pad, mini_monitor: null } }), null);
 });
 
@@ -369,4 +371,29 @@ test('no pad id stops the watch; leaving the page stops retrying', async (t) => 
   card.disconnectedCallback();
   assert.equal(card._retryTimer, null);
   assert.equal(card._retryAttempt, 0);
+});
+
+test('frameParts: each key shows its own part of the one picture', () => {
+  const parts = frameParts({
+    width: 600, height: 300,
+    tiles: [
+      { name: 'key_1', x: 0, y: 0, w: 100, h: 100 },
+      { name: 'key_2', x: 250, y: 100, w: 100, h: 100 },
+      { name: 'key_3', x: 500, y: 200, w: 100, h: 100 },
+      { name: 'bad', x: 550, y: 0, w: 100, h: 100 },
+      { name: 'zero', x: 0, y: 0, w: 0, h: 100 },
+    ],
+  });
+  // The picture is drawn 6 keys wide and 3 high behind each key...
+  assert.deepEqual(parts.get('key_1'), { size: '600% 300%', position: '0% 0%' });
+  // ...shifted so the key's own part shows: CSS positions run 0% to 100%.
+  assert.deepEqual(parts.get('key_2'), { size: '600% 300%', position: '50% 50%' });
+  assert.deepEqual(parts.get('key_3'), { size: '600% 300%', position: '100% 100%' });
+  assert.equal(parts.has('bad'), false, 'outside the picture');
+  assert.equal(parts.has('zero'), false);
+  assert.equal(frameParts({ width: 0, height: 10, tiles: [] }).size, 0);
+  assert.equal(frameParts(null).size, 0);
+  // A picture exactly one key big.
+  assert.deepEqual(frameParts({ width: 85, height: 85, tiles: [{ name: 'k', x: 0, y: 0, w: 85, h: 85 }] }).get('k'),
+    { size: '100% 100%', position: '0% 0%' });
 });

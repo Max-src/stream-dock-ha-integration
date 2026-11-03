@@ -69,6 +69,8 @@ scale: 2
 
 The card shows the pad's keys as the pad shows them, live, alerts included. Tap a key to press it. Pads of a PC that's off are shown dimmed, with their last pictures, and can't be pressed.
 
+With Mini Monitor on, the card shows the PC screen across the pad's keys, as the pad does. The app sends a few pictures a second, only while a card shows that pad; set how many in the app's **Settings > Home Assistant**. When the app reaches Home Assistant through the internet, it sends those pictures straight to Home Assistant's local address instead (**Settings > System > Network** in Home Assistant), if it has one.
+
 ## Entities
 
 For each pad:

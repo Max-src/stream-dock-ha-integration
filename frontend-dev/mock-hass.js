@@ -291,6 +291,32 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
     setConnected(padId, connected) { const p = pads.get(padId); p.state = { ...p.state, connected }; sendPad(p); },
     setScreen(padId, on) { const p = pads.get(padId); p.state = { ...p.state, screen_on: on }; sendPad(p); },
     setMiniMonitor(padId, on) { const p = pads.get(padId); p.state = { ...p.state, mini_monitor: on }; sendPad(p); },
+    // A Mini Monitor frame (protocol 3.6), as the app sends it: one picture
+    // of a screen, laid out over the keys with the screen hidden under the gaps.
+    sendFrame(padId, step = 0) {
+      const p = pads.get(padId);
+      const [K, G] = [85, 22];
+      const keys = p.state.layout.controls.filter((c) => c.type === 'key');
+      const cols = 5;
+      const rows = Math.ceil(keys.length / cols);
+      const canvas = document.createElement('canvas');
+      canvas.width = cols * K + (cols - 1) * G;
+      canvas.height = rows * K + (rows - 1) * G;
+      const g = canvas.getContext('2d');
+      const sky = g.createLinearGradient(0, 0, 0, canvas.height);
+      sky.addColorStop(0, '#2a1e6e'); sky.addColorStop(1, '#fa963c');
+      g.fillStyle = sky; g.fillRect(0, 0, canvas.width, canvas.height);
+      g.fillStyle = '#ffe682';
+      g.beginPath(); g.arc(canvas.width / 2 + Math.sin(step / 4) * 120, canvas.height * 0.62, 80, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#1e193c';
+      g.beginPath(); g.moveTo(0, canvas.height); g.lineTo(0, canvas.height * 0.7); g.lineTo(canvas.width * 0.3, canvas.height * 0.45);
+      g.lineTo(canvas.width * 0.6, canvas.height * 0.8); g.lineTo(canvas.width, canvas.height * 0.5); g.lineTo(canvas.width, canvas.height); g.fill();
+      g.fillStyle = '#fff'; g.font = 'bold 34px sans-serif'; g.textAlign = 'center';
+      g.fillText('Mini Monitor', canvas.width / 2, 70);
+      const tiles = keys.map((c, i) => ({ name: c.name, x: (i % cols) * (K + G), y: Math.floor(i / cols) * (K + G), w: K, h: K }));
+      const data = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+      for (const sub of p.subs) emit(sub, { kind: 'frame', width: canvas.width, height: canvas.height, data, tiles });
+    },
     showAlert(padId, alert) {
       const p = pads.get(padId); p.alert = alert; p.state = { ...p.state, alert: true };
       sendPad(p); sendPictures(p, [], true);

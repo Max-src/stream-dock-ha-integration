@@ -177,7 +177,7 @@ class StreamDockHub:
         pc.control = msg["control"]
         pc.app_version = msg["app_version"]
         pc.user = connection.user.name if connection.user else None
-        pc.link = PcLink(connection, msg_id)
+        pc.link = PcLink(connection, msg_id, secrets.token_hex(16))
         pc.sent_watch = None
         self._links[connection] = instance_id
 
@@ -302,6 +302,34 @@ class StreamDockHub:
         self.hass.bus.async_fire(EVENT_PRESSED, data)
         async_dispatcher_send(
             self.hass, signal_press(self.entry.entry_id, pad.pad_id), data
+        )
+
+    @callback
+    def async_frame(self, msg: dict[str, Any]) -> None:
+        """Pass a Mini Monitor frame to the cards showing that pad.
+
+        Frames may come on a connection of their own, over Home Assistant's
+        local address, so they name their PC and its frame key instead.
+        """
+        pc = self.pcs.get(msg["instance_id"])
+        if (
+            pc is None
+            or pc.link is None
+            or not secrets.compare_digest(pc.link.frame_key, msg["key"])
+        ):
+            raise NotConnectedError
+        pad = self._own_pad(pc, msg["pad_id"])
+        if not self.watchers.count(pad.pad_id):
+            return
+        self.watchers.async_send(
+            pad.pad_id,
+            {
+                "kind": "frame",
+                "width": msg["width"],
+                "height": msg["height"],
+                "data": msg["data"],
+                "tiles": msg["tiles"],
+            },
         )
 
     @callback

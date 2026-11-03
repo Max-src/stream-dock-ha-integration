@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.components.websocket_api import ActiveConnection
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 import probatio
 
 from .const import CONF_ADMIN_ONLY_PRESS, DEFAULT_WATCH_SCALE, PROTOCOL
@@ -102,6 +103,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_state,
         ws_pressed,
         ws_pictures,
+        ws_frame,
         ws_reply,
         ws_pads,
         ws_watch,
@@ -195,10 +197,31 @@ def ws_connect(
             msg["id"], ERR_RENEW_INSTANCE, "This instance id belongs to another PC"
         )
         return
+    assert pc.link is not None
     connection.send_result(
-        msg["id"], {"protocol": PROTOCOL, "integration_version": hub.version}
+        msg["id"],
+        {
+            "protocol": PROTOCOL,
+            "integration_version": hub.version,
+            "local_url": _local_url(hass),
+            "frame_key": pc.link.frame_key,
+        },
     )
     hub.async_update_watch(pc.instance_id)
+
+
+def _local_url(hass: HomeAssistant) -> str | None:
+    """Home Assistant's address on the home network, if it knows one.
+
+    The app sends Mini Monitor frames there when it reached Home Assistant
+    some other way, so they don't go out to the internet and back.
+    """
+    try:
+        return get_url(
+            hass, allow_internal=True, allow_external=False, allow_cloud=False
+        )
+    except NoURLAvailableError:
+        return None
 
 
 @websocket_api.websocket_command(
@@ -252,6 +275,45 @@ def ws_pressed(
         return
     try:
         hub.async_pressed(connection, msg)
+    except (NotConnectedError, PadNotFoundError) as err:
+        _send_app_error(connection, msg["id"], err)
+        return
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        probatio.Required("type"): "stream_dock_ha/frame",
+        probatio.Required("instance_id"): HEX_ID,
+        probatio.Required("key"): str,
+        probatio.Required("pad_id"): HEX_ID,
+        probatio.Required("width"): probatio.All(int, probatio.Range(min=1, max=4096)),
+        probatio.Required("height"): probatio.All(int, probatio.Range(min=1, max=4096)),
+        probatio.Required("data"): str,
+        probatio.Required("tiles"): [
+            probatio.Schema(
+                {
+                    probatio.Required("name"): str,
+                    probatio.Required("x"): int,
+                    probatio.Required("y"): int,
+                    probatio.Required("w"): int,
+                    probatio.Required("h"): int,
+                }
+            )
+        ],
+    }
+)
+@callback
+def ws_frame(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Take a Mini Monitor frame for the cards (protocol 3.6)."""
+    if not _is_admin_or_error(connection, msg["id"]):
+        return
+    if (hub := _app_hub_or_error(connection, msg["id"])) is None:
+        return
+    try:
+        hub.async_frame(msg)
     except (NotConnectedError, PadNotFoundError) as err:
         _send_app_error(connection, msg["id"], err)
         return

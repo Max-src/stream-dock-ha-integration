@@ -136,6 +136,9 @@
     } else if (s === 'mini') {
       control.setMiniMonitor(P293, true);
       control.setConnected(PAKP, false);
+      let step = 0;
+      control.sendFrame(P293, step);
+      setInterval(() => control.sendFrame(P293, ++step), 500);
     } else if (s === 'alert') {
       control.showAlert(P293, { title: 'Doorbell', message: 'Someone is at the front door' });
       control.showAlert(PDASH, { title: 'Washer', message: 'The laundry is done', color: [33, 150, 243] });

@@ -17,7 +17,11 @@ async def test_connect_success(
     app = FakeApp(await hass_ws_client(hass))
     result = await app.connect()
     assert result["success"]
-    assert result["result"] == {"protocol": 1, "integration_version": "0.1.1"}
+    assert result["result"]["protocol"] == 1
+    assert result["result"]["integration_version"] == "0.1.2"
+    # A key for its Mini Monitor frames, and the local address if known.
+    assert len(result["result"]["frame_key"]) == 32
+    assert "local_url" in result["result"]
     assert await app.next_event() == {"kind": "watch", "pads": {}}
 
     device = get_device(hass, INSTANCE_1)

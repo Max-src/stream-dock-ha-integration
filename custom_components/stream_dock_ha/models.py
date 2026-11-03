@@ -14,6 +14,9 @@ class PcLink:
 
     connection: ActiveConnection
     msg_id: int
+    #: Frames name it, so only this app's frames are taken, whichever
+    #: connection they come on (protocol 3.6).
+    frame_key: str = ""
 
 
 @dataclass(slots=True)

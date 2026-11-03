@@ -9,12 +9,14 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.1';
+const CARD_VERSION = '0.1.2';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
 /** Room around the controls on the pad body, in key units, when the app doesn't say. */
 const BODY_MARGIN = 0.3;
+/** A Mini Monitor picture older than this is taken off the keys, in ms. */
+const FRAME_STALE_MS = 3000;
 /** How long an error message stays, in ms. */
 const TOAST_MS = 3000;
 /** Shortest visible press, in ms, so a quick tap still shows. */
@@ -209,6 +211,30 @@ function samePicture(a, b) {
  * otherwise the event is merged in, `null` meaning empty.
  * Returns the new Map and the names whose picture actually changed.
  */
+/**
+ * Where each control's part of a Mini Monitor frame is (protocol 3.6), as CSS
+ * background sizes and positions, so every key shows its own part of the one
+ * picture. Controls without a sane part are left out.
+ */
+export function frameParts(frame) {
+  const parts = new Map();
+  const W = num(frame && frame.width);
+  const H = num(frame && frame.height);
+  const tiles = frame && Array.isArray(frame.tiles) ? frame.tiles : [];
+  if (!(W > 0) || !(H > 0)) return parts;
+  const at = (offset, size, whole) => (whole > size ? (offset / (whole - size)) * 100 : 0);
+  for (const t of tiles) {
+    if (!t || typeof t.name !== 'string') continue;
+    const x = num(t.x); const y = num(t.y); const w = num(t.w); const h = num(t.h);
+    if (!(w > 0) || !(h > 0) || x < 0 || y < 0 || x + w > W || y + h > H) continue;
+    parts.set(t.name, {
+      size: `${(W / w) * 100}% ${(H / h) * 100}%`,
+      position: `${at(x, w, W)}% ${at(y, h, H)}%`,
+    });
+  }
+  return parts;
+}
+
 export function mergePictures(prev, event) {
   const before = prev instanceof Map ? prev : new Map();
   const complete = !!(event && event.complete);
@@ -264,15 +290,16 @@ export function pressErrorText(err) {
 
 /**
  * What covers the pad, if anything. `block` means presses are not sent;
- * `dim` darkens the pictures. Only the most important one is shown.
+ * `dim` darkens the pictures. Only the most important one is shown. With
+ * Mini Monitor's `frames` showing, the card needs no word about it.
  */
-export function padOverlay({ online = true, linkDown = false, pad = null } = {}) {
+export function padOverlay({ online = true, linkDown = false, pad = null, frames = false } = {}) {
   if (linkDown) return { kind: 'link', text: 'Reconnecting to Home Assistant…', sub: '', dim: true, block: true };
   if (online === false) return { kind: 'offline', text: 'PC offline', sub: 'Showing the last pictures', dim: true, block: true };
   if (!pad) return null;
   if (pad.connected === false) return { kind: 'unplugged', text: 'Pad unplugged', sub: 'Keys still run on the PC', dim: false, block: false };
   if (pad.screen_on === false) return { kind: 'screen_off', text: 'Screen off — press to wake', sub: '', dim: true, block: false };
-  if (pad.mini_monitor === true) return { kind: 'mini_monitor', text: 'Mini Monitor is on', sub: 'The pad shows the PC screen', dim: false, block: false };
+  if (pad.mini_monitor === true && !frames) return { kind: 'mini_monitor', text: 'Mini Monitor is on', sub: 'The pad shows the PC screen', dim: false, block: false };
   return null;
 }
 
@@ -409,6 +436,10 @@ ha-card:not(:defined) {
   object-fit: cover; pointer-events: none; -webkit-user-drag: none;
 }
 .key:not(.pic) img, .band:not(.pic) img { display: none; }
+/* Mini Monitor: each key shows its part of one picture. */
+.mm { position: absolute; inset: 0; background-image: var(--mm); background-repeat: no-repeat;
+  pointer-events: none; display: none; }
+.pad.mini .mm { display: block; }
 .key.down { transform: scale(.92); filter: brightness(.82); transition-duration: .05s; }
 
 .button {
@@ -625,6 +656,7 @@ export class StreamDockCard extends Base {
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
     clearTimeout(this._resizeTimer);
     this._releaseDown();
+    this._clearFrame();
   }
 
   _build() {
@@ -841,6 +873,7 @@ export class StreamDockCard extends Base {
     this._online = true;
     this._loaded = false;
     this._pictures = new Map();
+    this._clearFrame();
     this._autoScale = null;
     this._layout = null;
     this._els.clear();
@@ -893,6 +926,73 @@ export class StreamDockCard extends Base {
     if (!event || typeof event !== 'object') return;
     if (event.kind === 'pad') this._onPad(event);
     else if (event.kind === 'pictures') this._onPictures(event);
+    else if (event.kind === 'frame') this._onFrame(event);
+  }
+
+  /* ---------- Mini Monitor ---------- */
+
+  _onFrame(event) {
+    if (!this._built || !this._pad || this._pad.mini_monitor !== true) return;
+    if (typeof event.data !== 'string' || !event.data) return;
+    const tiles = JSON.stringify(event.tiles || []) + `${event.width}x${event.height}`;
+    if (tiles !== this._frameTiles) {
+      this._frameTiles = tiles;
+      this._frameParts = frameParts(event);
+      this._placeFrameParts();
+    }
+    let url;
+    try {
+      const bytes = Uint8Array.from(atob(event.data), (c) => c.charCodeAt(0));
+      url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+    } catch (_err) {
+      return;
+    }
+    // Shown once decoded, so the keys never flash empty between pictures.
+    const serial = (this._frameSerial = (this._frameSerial || 0) + 1);
+    const img = new Image();
+    img.src = url;
+    const show = () => {
+      if (serial !== this._frameSerial || !this._built) { URL.revokeObjectURL(url); return; }
+      const old = this._frameUrl;
+      this._frameUrl = url;
+      this._frame.style.setProperty('--mm', `url("${url}")`);
+      this._padEl.classList.add('mini');
+      if (old) URL.revokeObjectURL(old);
+      else this._renderChrome();
+      clearTimeout(this._frameTimer);
+      this._frameTimer = setTimeout(() => this._clearFrame(), FRAME_STALE_MS);
+    };
+    (img.decode ? img.decode() : Promise.resolve()).then(show, () => URL.revokeObjectURL(url));
+  }
+
+  /** Gives each key its part of the picture, with a layer to show it in. */
+  _placeFrameParts() {
+    const parts = this._frameParts || new Map();
+    for (const [name, entry] of this._els) {
+      const part = parts.get(name);
+      let layer = entry.el.querySelector(':scope > .mm');
+      if (!part) { if (layer) layer.remove(); continue; }
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'mm';
+        entry.el.appendChild(layer);
+      }
+      layer.style.backgroundSize = part.size;
+      layer.style.backgroundPosition = part.position;
+    }
+  }
+
+  _clearFrame() {
+    clearTimeout(this._frameTimer);
+    this._frameSerial = (this._frameSerial || 0) + 1;
+    const had = !!this._frameUrl;
+    if (this._frameUrl) URL.revokeObjectURL(this._frameUrl);
+    this._frameUrl = null;
+    if (this._built) {
+      this._padEl.classList.remove('mini');
+      this._frame.style.removeProperty('--mm');
+      if (had) this._renderChrome();
+    }
   }
 
   _onPad(event) {
@@ -916,6 +1016,7 @@ export class StreamDockCard extends Base {
         this._applyBody(computed.look);
       }
     }
+    if (!pad || pad.mini_monitor !== true) this._clearFrame();
     this._renderChrome();
   }
 
@@ -991,6 +1092,7 @@ export class StreamDockCard extends Base {
     this._frame.style.setProperty('--bh', String(layout.height));
     this._applyBody(layout.look);
     for (const name of this._els.keys()) this._applyPicture(name);
+    this._placeFrameParts();
   }
 
   _applyBody(look) {
@@ -1063,7 +1165,7 @@ export class StreamDockCard extends Base {
     this._frame.hidden = !hasLayout;
 
     // Overlay
-    const overlay = padOverlay({ online: this._online, linkDown: this._linkDown, pad });
+    const overlay = padOverlay({ online: this._online, linkDown: this._linkDown, pad, frames: !!this._frameUrl });
     this._overlay = overlay;
     this._padEl.classList.toggle('dim', !!(overlay && overlay.dim));
     if (overlay) {
