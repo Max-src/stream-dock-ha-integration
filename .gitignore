@@ -6,3 +6,5 @@ node_modules/
 .ha-test/
 *.egg-info/
 .ruff_cache/
+frontend-dev/.edge-profile*/
+frontend-dev/.edge-profile.lock

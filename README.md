@@ -242,6 +242,10 @@ uv pip install pytest-homeassistant-custom-component==0.13.375 home-assistant-fr
 pytest
 ```
 
+The card's tests: `node --test frontend-dev/test/*.mjs`. Screenshots of the card and its in-browser self-test: `node frontend-dev/shots.mjs` (headless Edge).
+
+**Never start headless Edge or Chrome with a new temporary `--user-data-dir`.** Each new profile makes a failed Windows logon (Edge checks whether the password is blank), and 10 of them lock the account. Reuse `frontend-dev/.edge-profile` through [`frontend-dev/edge.mjs`](frontend-dev/edge.mjs), never delete it or its `Local State`, and let its lock file keep scripts from sharing it at the same time. A script that needs Edges in parallel gives each its own lasting folder (`.edge-profile-1`, `.edge-profile-2`), never one per launch.
+
 ## License
 
 MIT

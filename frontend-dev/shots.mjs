@@ -1,25 +1,18 @@
 // Screenshots of the harness with headless Edge. Usage: node frontend-dev/shots.mjs
 // Also runs the in-browser self-test (via --dump-dom) and prints its result.
-import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+// Edge always runs with the one lasting profile in edge.mjs: see why there.
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { edge, lockProfile } from './edge.mjs';
 import { startServer } from './serve.mjs';
 
-const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+lockProfile();
 const OUT = fileURLToPath(new URL('./shots/', import.meta.url));
 mkdirSync(OUT, { recursive: true });
 const PORT = 8766;
 const server = await startServer(PORT);
 const base = `http://127.0.0.1:${PORT}/frontend-dev/index.html`;
-
-function edge(args) {
-  const profile = mkdtempSync(join(tmpdir(), 'sdc-edge-'));
-  return new Promise((ok, fail) => execFile(EDGE, ['--headless', '--disable-gpu', '--hide-scrollbars',
-    '--no-first-run', '--no-default-browser-check', '--force-prefers-reduced-motion', `--user-data-dir=${profile}`, ...args],
-    { maxBuffer: 64 * 1024 * 1024, timeout: 60000 }, (err, stdout) => (err ? fail(err) : ok(stdout))));
-}
 
 const shots = [
   ['normal', '?shots', '1340,470'],
