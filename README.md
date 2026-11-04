@@ -139,7 +139,10 @@ title: Desk screen
 show_card_background: true
 show_name: true
 show_turn_on: true
+mouse: false
 ```
+
+With **Use the mouse on Mini Monitor** (`mouse: true`), the card works like a remote screen: click, drag, right-click (a long press on a phone), scroll, and hover with a mouse. It moves the PC's real pointer onto the Mini Monitor display. Only administrators can use it, and only once the app allows it: **Settings > Home Assistant > Dashboard cards can use the mouse on Mini Monitor**, under **Let Home Assistant control this app**. A small mouse sign in the corner shows it's on.
 
 ## Actions
 

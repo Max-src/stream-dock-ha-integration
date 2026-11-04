@@ -44,6 +44,7 @@ const shots = [
   ['keys-light', '?shots&s=keys&theme=light', '1340,330'],
   ['screen-card-off', '?shots&s=screen', '1340,420'],
   ['screen-card-on', '?shots&s=screen&on', '1340,420'],
+  ['screen-card-mouse', '?shots&s=screen&on&mouse', '1340,420'],
 ];
 const only = process.argv[2];
 for (const [name, query, size, extra = []] of shots) {
@@ -52,7 +53,7 @@ for (const [name, query, size, extra = []] of shots) {
   await edge([...extra, `--window-size=${size}`, '--virtual-time-budget=2500', `--screenshot=${join(OUT, name + '.png')}`, base + query]);
   console.log('shot', name);
 }
-const dom = await edge(['--virtual-time-budget=8000', '--dump-dom', base + '?s=selftest']);
+const dom = await edge(['--virtual-time-budget=16000', '--dump-dom', base + '?s=selftest']);
 const m = /<pre id="results">([\s\S]*?)<\/pre>/.exec(dom);
 console.log(m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<') : 'no self-test output');
 server.close();

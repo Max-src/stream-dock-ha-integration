@@ -254,3 +254,78 @@ async def test_press_permissions(
     event = await app_with_pads.next_event("command")
     await app_with_pads.reply(event["request_id"])
     assert (await admin_card.result(msg_id))["success"]
+
+
+async def test_mouse_from_card(
+    hass: HomeAssistant,
+    hass_ws_client: Any,
+    hass_read_only_access_token: str,
+    app_with_pads: FakeApp,
+) -> None:
+    """The card's mouse goes to the app as `mouse`, for administrators only."""
+    card = WsPeer(await hass_ws_client(hass))
+    msg_id = await card.send(
+        {
+            "type": "stream_dock_ha/mouse",
+            "pad_id": PAD_1,
+            "action": "down",
+            "x": 0.25,
+            "y": 0.75,
+            "button": "right",
+        }
+    )
+    event = await app_with_pads.next_event("command")
+    assert event["data"]["command"] == "mouse"
+    assert event["data"]["action"] == "down"
+    assert (event["data"]["x"], event["data"]["y"]) == (0.25, 0.75)
+    assert event["data"]["button"] == "right"
+    assert event["data"]["source"] == "dashboard"
+    assert "amount" not in event["data"]
+    await app_with_pads.reply(event["request_id"], result={})
+    assert (await card.result(msg_id))["success"]
+
+    # Scrolling says how far; the button is left unless asked.
+    msg_id = await card.send(
+        {
+            "type": "stream_dock_ha/mouse",
+            "pad_id": PAD_1,
+            "action": "scroll",
+            "x": 0.5,
+            "y": 0.5,
+            "amount": -3,
+        }
+    )
+    event = await app_with_pads.next_event("command")
+    assert (event["data"]["amount"], event["data"]["button"]) == (-3, "left")
+    await app_with_pads.reply(
+        event["request_id"], ok=False, error="Mouse from dashboard cards is off"
+    )
+    result = await card.result(msg_id)
+    assert result["error"] == {
+        "code": "failed",
+        "message": "Mouse from dashboard cards is off",
+    }
+
+    # Out of the picture, or an unknown action, isn't sent.
+    for bad in ({"x": 1.5}, {"action": "drag"}, {"button": "back"}):
+        msg = {
+            "type": "stream_dock_ha/mouse",
+            "pad_id": PAD_1,
+            "action": "click",
+            "x": 0.5,
+            "y": 0.5,
+            **bad,
+        }
+        assert (await card.call(msg))["error"]["code"] == "invalid_format"
+
+    user_card = WsPeer(await hass_ws_client(hass, hass_read_only_access_token))
+    result = await user_card.call(
+        {
+            "type": "stream_dock_ha/mouse",
+            "pad_id": PAD_1,
+            "action": "click",
+            "x": 0.5,
+            "y": 0.5,
+        }
+    )
+    assert result["error"]["code"] == "unauthorized"

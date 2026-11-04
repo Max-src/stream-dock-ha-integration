@@ -13,7 +13,7 @@
 const CARD_TYPE = 'stream-dock-card';
 const KEY_CARD_TYPE = 'stream-dock-key-card';
 const SCREEN_CARD_TYPE = 'stream-dock-screen-card';
-const CARD_VERSION = '0.1.8';
+const CARD_VERSION = '0.1.9';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -312,13 +312,17 @@ export function pressErrorText(err) {
  * `dim` darkens the pictures. Only the most important one is shown. With
  * Mini Monitor's `frames` showing, the card needs no word about it.
  */
-export function padOverlay({ online = true, linkDown = false, pad = null, frames = false } = {}) {
+export function padOverlay({ online = true, linkDown = false, pad = null, frames = false, frameError = false } = {}) {
   if (linkDown) return { kind: 'link', text: 'Reconnecting to Home Assistant…', sub: '', dim: true, block: true };
   if (online === false) return { kind: 'offline', text: 'PC offline', sub: 'Showing the last pictures', dim: true, block: true };
   if (!pad) return null;
   if (pad.connected === false) return { kind: 'unplugged', text: 'Pad unplugged', sub: 'Keys still run on the PC', dim: false, block: false };
   if (pad.screen_on === false) return { kind: 'screen_off', text: 'Screen off — press to wake', sub: '', dim: true, block: false };
-  if (pad.mini_monitor === true && !frames) return { kind: 'mini_monitor', text: 'Mini Monitor is on', sub: 'The pad shows the PC screen', dim: false, block: false };
+  if (pad.mini_monitor === true && !frames) {
+    return frameError
+      ? { kind: 'mini_monitor', text: 'Mini Monitor is on', sub: "Its pictures arrive but this browser can't show them", dim: false, block: false }
+      : { kind: 'mini_monitor', text: 'Mini Monitor is on', sub: 'Waiting for its pictures', dim: false, block: false };
+  }
   return null;
 }
 
@@ -637,6 +641,11 @@ ha-card.plain .screen { box-shadow: none; }
   background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff);
 }
 .screen-off button[hidden] { display: none; }
+.screen.mouse { cursor: crosshair; touch-action: none; }
+.screen .badge { position: absolute; right: 8px; top: 8px; width: 22px; height: 22px; border-radius: 6px;
+  background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; pointer-events: none; }
+.screen.mouse.live .badge { display: flex; }
+.screen .badge svg { width: 14px; height: 14px; fill: #fff; opacity: .85; }
 
 .button {
   border-radius: 50%;
@@ -738,6 +747,7 @@ const LABELS = {
   press_effect: 'Press effect',
   show_pad_presses: 'Show presses made on the pad',
   show_turn_on: 'Offer to turn Mini Monitor on',
+  mouse: 'Use the mouse on Mini Monitor',
   scale: 'Picture scale (empty: automatic)',
 };
 const HELPERS = {
@@ -749,6 +759,7 @@ const HELPERS = {
   press_effect: 'The key sinks and lights up where you tap it.',
   show_pad_presses: 'A ring flashes round a key pressed on the real pad, on a pad on screen or by an automation.',
   show_turn_on: 'A button to turn it on when it is off. It needs permission to change the Mini Monitor switch.',
+  mouse: "Click, drag, right-click (a long press on a phone) and scroll on the PC's Mini Monitor display. It moves the PC's real pointer. Administrators only, and the app must allow it.",
   scale: 'Leave empty to match the screen. 1 is sharpest on small cards, 3 on big high-DPI screens.',
 };
 
@@ -1274,32 +1285,52 @@ export class StreamDockCard extends Base {
       this._placeFrameParts();
     }
     this._padEl.classList.toggle('seamless', event.seamless === true);
-    let url;
-    try {
-      const bytes = Uint8Array.from(atob(event.data), (c) => c.charCodeAt(0));
-      url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
-    } catch (_err) {
-      return;
+    // A blob is lighter, but a browser that can't show one gets the picture
+    // as a data: address, as the key pictures are.
+    let url = null;
+    let blob = false;
+    if (!this._frameAsData) {
+      try {
+        const bytes = Uint8Array.from(atob(event.data), (c) => c.charCodeAt(0));
+        url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+        blob = true;
+      } catch (_err) {
+        this._frameAsData = true;
+      }
     }
+    if (!url) url = `data:image/jpeg;base64,${event.data}`;
+    const drop = (u) => { if (u && u.startsWith('blob:')) URL.revokeObjectURL(u); };
     // Shown once decoded, so the keys never flash empty between pictures. A
     // picture decoded after a newer one is dropped, but a slow decode isn't
     // dropped just because the next picture came in meanwhile.
     const serial = (this._frameSerial = (this._frameSerial || 0) + 1);
     const img = new Image();
+    const loaded = new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; });
     img.src = url;
     const show = () => {
-      if (serial <= (this._frameShown || 0) || !this._built) { URL.revokeObjectURL(url); return; }
+      if (serial <= (this._frameShown || 0) || !this._built) { drop(url); return; }
       this._frameShown = serial;
+      this._frameFails = 0;
       const old = this._frameUrl;
       this._frameUrl = url;
       this._frame.style.setProperty('--mm', `url("${url}")`);
       this._padEl.classList.add('mini');
-      if (old) URL.revokeObjectURL(old);
-      else this._renderChrome();
+      if (old) drop(old);
+      if (!old || this._frameError) { this._frameError = false; this._renderChrome(); }
       clearTimeout(this._frameTimer);
       this._frameTimer = setTimeout(() => this._clearFrame(), FRAME_STALE_MS);
     };
-    (img.decode ? img.decode() : Promise.resolve()).then(show, () => URL.revokeObjectURL(url));
+    const failed = () => {
+      drop(url);
+      this._frameFails = (this._frameFails || 0) + 1;
+      // A blob that won't show: data: addresses from now on.
+      if (blob) this._frameAsData = true;
+      if (this._frameFails >= 3 && !this._frameUrl && !this._frameError) { this._frameError = true; this._renderChrome(); }
+    };
+    // Some browsers' decode() refuses pictures that load fine (older Safari,
+    // in the phone app among them): then it's shown once loaded.
+    const ready = img.decode ? img.decode().catch(() => loaded) : loaded;
+    ready.then(show, failed);
   }
 
   /** Gives each key its part of the picture, with a layer to show it in. */
@@ -1343,7 +1374,7 @@ export class StreamDockCard extends Base {
     this._frameSerial = (this._frameSerial || 0) + 1;
     this._frameShown = this._frameSerial; // pictures still decoding stay off
     const had = !!this._frameUrl;
-    if (this._frameUrl) URL.revokeObjectURL(this._frameUrl);
+    if (this._frameUrl && this._frameUrl.startsWith('blob:')) URL.revokeObjectURL(this._frameUrl);
     this._frameUrl = null;
     if (this._built) {
       this._padEl.classList.remove('mini', 'seamless');
@@ -1544,7 +1575,9 @@ export class StreamDockCard extends Base {
     this._frame.hidden = !hasLayout;
 
     // Overlay
-    const overlay = this._overlayFor({ online: this._online, linkDown: this._linkDown, pad, frames: !!this._frameUrl });
+    const overlay = this._overlayFor({
+      online: this._online, linkDown: this._linkDown, pad, frames: !!this._frameUrl, frameError: !!this._frameError,
+    });
     this._overlay = overlay;
     this._padEl.classList.toggle('dim', !!(overlay && overlay.dim));
     if (overlay) {
@@ -1894,6 +1927,7 @@ export function normaliseScreenConfig(config) {
   if (!config || typeof config !== 'object') throw new Error('Invalid configuration');
   const out = normaliseConfig({ show_profile: false, ...config });
   out.show_turn_on = out.show_turn_on !== false;
+  out.mouse = out.mouse === true;
   out.show_page_buttons = false;
   out.tilt = false;
   out.show_pad_presses = false;
@@ -1924,6 +1958,7 @@ export class StreamDockScreenCard extends StreamDockCard {
           { name: 'show_name', selector: { boolean: {} } },
           { name: 'show_turn_on', selector: { boolean: {} } },
         ]),
+        section('Mouse', 'mdi:mouse', [{ name: 'mouse', selector: { boolean: {} } }]),
       ],
       computeLabel: (s) => LABELS[s.name],
       computeHelper: (s) => HELPERS[s.name],
@@ -1959,9 +1994,11 @@ export class StreamDockScreenCard extends StreamDockCard {
     if (!this._padEl.querySelector('.screen')) {
       this._padEl.innerHTML = `
         <div class="screen"><div class="shot"></div>
+          <div class="badge" title="The mouse works here"><svg viewBox="0 0 24 24"><path d="M11 1.07C7.05 1.56 4 4.92 4 9h7V1.07M13 1.07V9h7c0-4.08-3.05-7.44-7-7.93M4 15c0 4.42 3.58 8 8 8s8-3.58 8-8v-4H4v4z"/></svg></div>
           <div class="screen-off" hidden><span class="what"></span><button type="button" hidden>Turn on Mini Monitor</button></div>
         </div>`;
       this._padEl.querySelector('.screen-off button').addEventListener('click', () => this._turnOn());
+      this._bindMouse(this._padEl.querySelector('.screen'));
     }
     if (!this._screenSize) {
       this._frame.style.setProperty('--bw', '16');
@@ -1991,6 +2028,11 @@ export class StreamDockScreenCard extends StreamDockCard {
 
   _renderChrome() {
     super._renderChrome();
+    const screen = this._screenEl;
+    if (screen) {
+      screen.classList.toggle('mouse', !!(this._config && this._config.mouse));
+      screen.classList.toggle('live', !!this._frameUrl);
+    }
     const off = this._built && this._padEl.querySelector('.screen-off');
     if (!off) return;
     const found = this._entities || {};
@@ -2009,6 +2051,154 @@ export class StreamDockScreenCard extends StreamDockCard {
   _turnOn() {
     const found = this._entities || {};
     if (found.mini_monitor) this._call('switch', 'turn_on', { entity_id: found.mini_monitor });
+  }
+
+  /* ---------- The mouse (protocol 5.4) ---------- */
+
+  _mouseOn() {
+    return !!(this._config && this._config.mouse && this._frameUrl && this._padId && this._hass);
+  }
+
+  _bindMouse(screen) {
+    this._screenEl = screen;
+    this._mouse = new MouseQueue((item) => this._hass.callWS({ type: 'stream_dock_ha/mouse', pad_id: this._padId, ...item }));
+    this._mouse.onError = (err) => {
+      const now = Date.now();
+      if (now - (this._mouseToastAt || 0) < 4000) return;
+      this._mouseToastAt = now;
+      this._toast(mouseErrorText(err));
+    };
+    const at = (e) => {
+      const r = screen.getBoundingClientRect();
+      const part = (v, from, size) => (size > 0 ? Math.min(1, Math.max(0, (v - from) / size)) : 0.5);
+      return { x: part(e.clientX, r.left, r.width), y: part(e.clientY, r.top, r.height) };
+    };
+    screen.addEventListener('pointerdown', (e) => {
+      if (!this._mouseOn() || this._held) return;
+      const button = e.pointerType === 'mouse' ? MOUSE_BUTTONS[e.button] : 'left';
+      if (!button) return;
+      e.preventDefault();
+      try { screen.setPointerCapture(e.pointerId); } catch (_err) { /* not capturable */ }
+      const point = at(e);
+      const held = { pointerId: e.pointerId, button, point, x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse', down: false, done: false };
+      this._held = held;
+      if (!held.touch) {
+        held.down = true;
+        this._mouse.push({ action: 'down', ...point, button });
+      } else {
+        // A finger: a tap clicks, a drag drags, a long press right-clicks.
+        held.timer = setTimeout(() => {
+          held.done = true;
+          this._mouse.push({ action: 'click', ...held.point, button: 'right' });
+        }, LONG_PRESS_MS);
+      }
+    });
+    screen.addEventListener('pointermove', (e) => {
+      const held = this._held;
+      if (!held) {
+        // Hovering with a mouse moves the pointer too, a few times a second.
+        if (e.pointerType === 'mouse' && this._mouseOn() && Date.now() - (this._hoverAt || 0) > 100) {
+          this._hoverAt = Date.now();
+          this._mouse.push({ action: 'move', ...at(e) });
+        }
+        return;
+      }
+      if (held.pointerId !== e.pointerId || held.done) return;
+      if (held.touch && !held.down) {
+        if (Math.hypot(e.clientX - held.x, e.clientY - held.y) < DRAG_PX) return;
+        clearTimeout(held.timer);
+        held.down = true;
+        this._mouse.push({ action: 'down', ...held.point, button: held.button });
+      }
+      this._mouse.push({ action: 'move', ...at(e) });
+    });
+    const end = (e, cancelled) => {
+      const held = this._held;
+      if (!held || held.pointerId !== e.pointerId) return;
+      this._held = null;
+      clearTimeout(held.timer);
+      if (held.done) return;
+      const point = cancelled ? held.point : at(e);
+      if (!held.down) {
+        if (!cancelled) this._mouse.push({ action: 'click', ...held.point, button: 'left' });
+        return;
+      }
+      this._mouse.push({ action: 'up', ...point, button: held.button });
+    };
+    screen.addEventListener('pointerup', (e) => end(e, false));
+    screen.addEventListener('pointercancel', (e) => end(e, true));
+    screen.addEventListener('contextmenu', (e) => { if (this._config && this._config.mouse) e.preventDefault(); });
+    screen.addEventListener('wheel', (e) => {
+      if (!this._mouseOn()) return;
+      e.preventDefault();
+      const notches = wheelNotches(this, e);
+      if (notches) this._mouse.push({ action: 'scroll', ...at(e), amount: notches });
+    }, { passive: false });
+  }
+
+}
+
+/** Which button a mouse's `button` is. */
+const MOUSE_BUTTONS = ['left', 'middle', 'right'];
+/** How long a finger stays still for a right-click, in ms. */
+const LONG_PRESS_MS = 550;
+/** How far a finger moves before it drags, in CSS pixels. */
+const DRAG_PX = 8;
+
+/**
+ * Sends the card's mouse to Home Assistant one at a time and in order, so a
+ * drag arrives as down, moves, up. While one is on its way, moves in a row
+ * are merged into the latest, so a slow connection doesn't fall behind.
+ */
+export class MouseQueue {
+  constructor(send) {
+    this._send = send;
+    this._items = [];
+    this._busy = false;
+    this.onError = null;
+  }
+
+  push(item) {
+    const last = this._items[this._items.length - 1];
+    if (item.action === 'move' && last && last.action === 'move') this._items[this._items.length - 1] = item;
+    else this._items.push(item);
+    this._run();
+  }
+
+  async _run() {
+    if (this._busy) return;
+    this._busy = true;
+    while (this._items.length) {
+      const item = this._items.shift();
+      try {
+        await this._send(item);
+      } catch (err) {
+        if (this.onError) this.onError(err);
+      }
+    }
+    this._busy = false;
+  }
+}
+
+/** Wheel notches from a wheel event, keeping the rest of a partial one: positive is away from you. */
+export function wheelNotches(holder, e) {
+  const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
+  holder._wheel = (holder._wheel || 0) + e.deltaY * unit;
+  const notches = Math.trunc(holder._wheel / 100);
+  holder._wheel -= notches * 100;
+  return notches ? -notches : 0;
+}
+
+/** The short message shown when the mouse doesn't work. */
+export function mouseErrorText(err) {
+  const code = err && typeof err === 'object' ? err.code : undefined;
+  const message = err && typeof err === 'object' && typeof err.message === 'string' ? err.message.trim() : '';
+  switch (code) {
+    case 'unauthorized': return 'Only administrators can use the mouse here';
+    case 'offline': return 'The PC is offline';
+    case 'control_off': return 'Home Assistant control is off in the app';
+    case 'unknown_command': return 'Update the Stream Dock HA integration to use the mouse';
+    default: return message || (code ? String(code) : "The mouse didn't reach the PC");
   }
 }
 

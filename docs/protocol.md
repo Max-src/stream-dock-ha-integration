@@ -301,6 +301,7 @@ Commands added for the integration, also available through the event route:
 | `clear_alert` | `pad` | Takes the alert away | `{}` |
 | `show_on_key` | `pad`, `key` (a number counted from 1, also as text, or a control's name such as `key_3`) or `control`, and optional `title`, `message`, `icon` (`mdi:…`), `color` ([r,g,b]), `seconds` (0 = until pressed; default 30), `camera` (a camera entity) or `picture`, `fit` (`fill`, the default, `fit` or `stretch`) | Shows something on one screen key for a while; see section 6.1 | `{ "control": "key_3" }` |
 | `clear_on_key` | `pad`, optional `key` or `control` | Takes that off one key, or off all the pad's keys without a key | `{ "cleared": 1 }`, how many it took away |
+| `mouse` | `pad`, `action` (`move`, `down`, `up`, `click` or `scroll`), `x` and `y` (where on the Mini Monitor picture, as parts of its width and height, 0 to 1), optional `button` (`left`, the default, `right` or `middle`) and `amount` (wheel notches for `scroll`, away from you when positive, default 1, at most 20 either way) | Moves the PC's real pointer to that point of Mini Monitor's display and presses, lets go, clicks or turns the wheel there. Needs `ha_mouse` (section 7). A button pressed with `down` is let go by itself after 10 s without its `up` | `{}` |
 
 `press_key` takes `source` too. Its `control` accepts screen keys too (`key_3`), which is what the card sends. While Mini Monitor is on, a press from the physical pad or a pad on screen only brings the keys back, as today. A press from `dashboard` or `action` runs the key and leaves Mini Monitor on, because whoever sent it is looking at the card, not the pad. Alerts and a dark screen swallow presses from every source, as section 6 says. Section 7 says what Home Assistant is allowed to press.
 
@@ -363,7 +364,21 @@ The integration checks the user may press (section 7), then sends the app `press
 - `unauthorized`: the user isn't allowed to press
 - `failed`: the app said no, or didn't answer within 10 s; `message` says why
 
-All three commands can also fail with `not_set_up` when the integration has no config entry.
+### 5.4 `stream_dock_ha/mouse`
+
+```json
+{ "type": "stream_dock_ha/mouse", "pad_id": "...", "action": "click", "x": 0.5, "y": 0.5, "button": "left", "amount": 1 }
+```
+
+The mouse on Mini Monitor, from the Mini Monitor card. `action` is `move`, `down`, `up`, `click` or `scroll`; `x` and `y` say where on the frame's picture (section 3.6), as parts of its width and height; `button` and `amount` are optional, as in the app's `mouse` command. Only administrators may send it. The integration sends the app `mouse` with `source: "dashboard"` and returns the app's reply. Errors:
+
+- `not_found`: unknown pad
+- `offline`: the PC isn't connected
+- `control_off`: the app's control setting is off
+- `unauthorized`: the user isn't an administrator
+- `failed`: the app said no, or didn't answer within 10 s; `message` says why, for example `Mouse from dashboard cards is off in Stream Dock HA (Settings > Home Assistant)` or `Mini Monitor isn't showing on this pad`
+
+These commands can also fail with `not_set_up` when the integration has no config entry.
 
 ## 6. Alerts
 
@@ -401,12 +416,14 @@ These rules apply to every route Home Assistant has into the app (events, action
    This applies to `press_key` from any `source` but `pad`, `screen` and `hotkey`.
 3. Home Assistant can't change a key's `remote`: a `set_key` that tries is refused. A `set_key` that changes `actions` puts `remote` back to `auto`.
 4. Adding steps that act on the PC still needs **Also keys that open programs or press keys** (`ha_control_programs`).
+5. `mouse` also needs **Dashboard cards can use the mouse on Mini Monitor** (`ha_mouse`, off by default), under **Let Home Assistant control this app**. It's refused from sources `pad`, `screen` and `hotkey`. Keys' `remote` doesn't apply to it.
 
 ### In the integration
 
 - Changing an entity (the profile select, the page number, the screen light, the Mini Monitor switch) follows Home Assistant's usual entity permissions, like any other device.
 - Actions that change things (everything but `get_state`, `get_key` and `snapshot`) are refused with `unauthorized` when they're called by a logged-in user who isn't an administrator. Automations and scripts, which run without a user, are allowed.
 - The card's `press` is allowed for any logged-in user, unless the integration's option **Only administrators can press keys on dashboards** is on.
+- The card's `mouse` is only for administrators: it moves the PC's real pointer.
 - **The app's commands need an administrator's token:** `connect`, `state`, `pressed`, `pictures` and `reply`. A non-admin user gets `unauthorized`, so nobody can pose as a PC from a dashboard login. The app's event route already needs an admin token, so nothing changes for the person. The integration remembers which HA user each PC connected as, for the log.
 - **PC and pad ids share one space.** `connect` with an `instance_id` that is a known pad id gets `renew_instance`. A `state` listing a pad whose id is a known `instance_id` gets that id back in `renew_pads`.
 - **Request ids are random**, 16 hex characters prefixed `r-`, so they can't be guessed or repeated across reloads.

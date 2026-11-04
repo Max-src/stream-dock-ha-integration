@@ -272,6 +272,11 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
       }
       return {};
     }
+    if (msg.type === 'stream_dock_ha/mouse') {
+      const p = pads.get(msg.pad_id);
+      if (!p) throw { code: 'not_found', message: 'Unknown pad' };
+      return {};
+    }
     throw { code: 'unknown_command', message: 'Unknown command' };
   }
 

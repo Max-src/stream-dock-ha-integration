@@ -146,6 +146,7 @@
     addCard({ pad_id: PDASH }, 300, 'dashboard pad', 'stream-dock-screen-card');
     await wait(400);
     if (params.has('on')) {
+      if (params.has('mouse')) on.setConfig({ device_id: 'dev_293s', show_card_background: false, title: 'Desk screen', mouse: true });
       control.setMiniMonitor(P293, true);
       let step = 0;
       control.sendFrame(P293, step);
@@ -335,6 +336,48 @@
         `off hidden ${screenCard.shadowRoot.querySelector('.screen-off').hidden}, bw ${screenCard.shadowRoot.querySelector('.frame').style.getPropertyValue('--bw')}, subs ${control.subscriberCount(P293)}, mm ${control.pads.get(P293).state.mini_monitor}, seen ${screenCard._seen()}, cardmm ${screenCard._pad && screenCard._pad.mini_monitor}, url ${!!screenCard._frameUrl}, serial ${screenCard._frameSerial}`);
       control.setMiniMonitor(P293, false);
       screenCard.parentElement.remove();
+
+      // The screen card's mouse.
+      control.setMiniMonitor(P293, true);
+      const mouseCard = addCard({ device_id: 'dev_293s', mouse: true }, 400, 'mouse', 'stream-dock-screen-card');
+      mouseCard.scrollIntoView();
+      for (let step = 1; step <= 3; step++) { control.sendFrame(P293, step); await wait(150); }
+      await wait(400);
+      const scr = mouseCard.shadowRoot.querySelector('.screen');
+      const r = scr.getBoundingClientRect();
+      const fire = (type, fx, fy, extra = {}) => scr.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, composed: true, pointerId: 7, button: 0, isPrimary: true, pointerType: 'mouse',
+        clientX: r.left + fx * r.width, clientY: r.top + fy * r.height, ...extra }));
+      const mouseSent = () => sent.filter((m) => m.msg.type === 'stream_dock_ha/mouse').map((m) => m.msg);
+      check('the mouse badge shows', scr.classList.contains('mouse') && scr.classList.contains('live'));
+      fire('pointerdown', 0.25, 0.5);
+      fire('pointermove', 0.5, 0.5);
+      fire('pointermove', 0.75, 0.5);
+      fire('pointerup', 0.75, 0.5);
+      await wait(400);
+      const drag = mouseSent();
+      check('a drag goes as down, move, up, in order', drag.length >= 3 && drag[0].action === 'down' && drag.at(-1).action === 'up'
+        && Math.abs(drag[0].x - 0.25) < 0.02 && Math.abs(drag.at(-1).x - 0.75) < 0.02 && drag[0].button === 'left',
+        JSON.stringify(drag.map((m) => [m.action, +m.x.toFixed(2)])));
+      const sentBefore = mouseSent().length;
+      fire('pointerdown', 0.5, 0.25, { pointerType: 'touch' });
+      fire('pointerup', 0.5, 0.25, { pointerType: 'touch' });
+      await wait(200);
+      const tapSent = mouseSent().slice(sentBefore);
+      check('a tap is a click', tapSent.length === 1 && tapSent[0].action === 'click' && tapSent[0].button === 'left', JSON.stringify(tapSent));
+      fire('pointerdown', 0.5, 0.5, { pointerType: 'touch' });
+      await wait(700);
+      fire('pointerup', 0.5, 0.5, { pointerType: 'touch' });
+      await wait(200);
+      const long = mouseSent().slice(sentBefore + 1);
+      check('a long press is a right-click', long.length === 1 && long[0].action === 'click' && long[0].button === 'right', JSON.stringify(long));
+      mouseCard.parentElement.remove();
+      const noMouse = addCard({ device_id: 'dev_293s' }, 300, 'no mouse', 'stream-dock-screen-card');
+      noMouse.scrollIntoView();
+      await wait(300);
+      check('the mouse is off unless asked for', !noMouse.shadowRoot.querySelector('.screen').classList.contains('mouse'));
+      noMouse.parentElement.remove();
+      control.setMiniMonitor(P293, false);
 
       // Unknown pad.
       const bad =addCard({ pad_id: '0000000000000000' }, 300, 'unknown');

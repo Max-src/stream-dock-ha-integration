@@ -6,7 +6,7 @@ import {
   pressErrorText, padOverlay, resolvePadId, headerDetail, normaliseConfig, StreamDockCard,
   retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut, frameParts, frameBox,
   parseControls, focusLayout, padEntities, pressedControl, normaliseKeyConfig, normaliseScreenConfig,
-  screenNote, StreamDockKeyCard, StreamDockScreenCard,
+  screenNote, StreamDockKeyCard, StreamDockScreenCard, MouseQueue, wheelNotches, mouseErrorText,
 } from '../../custom_components/stream_dock_ha/frontend/stream-dock-card.js';
 import { layout293s, layoutAkp03e, layoutDashboard, bodyWhite, bodyClear } from '../layouts.mjs';
 
@@ -551,4 +551,51 @@ test('the screen card: config and what it says', () => {
   const card = new StreamDockScreenCard();
   card._config = cfg;
   assert.equal(card._desiredScale(), 1);
+});
+
+test('the mouse goes in order, one at a time, with moves merged', async () => {
+  const sent = [];
+  let release;
+  const queue = new MouseQueue((item) => { sent.push(item); return new Promise((ok) => { release = ok; }); });
+  queue.push({ action: 'down', x: 0.1, y: 0.1 });
+  queue.push({ action: 'move', x: 0.2, y: 0.2 });
+  queue.push({ action: 'move', x: 0.3, y: 0.3 });
+  queue.push({ action: 'up', x: 0.3, y: 0.3 });
+  assert.deepEqual(sent.map((i) => i.action), ['down'], 'one on its way at a time');
+  for (let n = 0; n < 3; n++) { release(); await new Promise((r) => setTimeout(r, 0)); }
+  assert.deepEqual(sent.map((i) => [i.action, i.x]), [['down', 0.1], ['move', 0.3], ['up', 0.3]]);
+  // A refused one is reported, and the rest still go.
+  const errors = [];
+  const failing = new MouseQueue(async (item) => { if (item.action === 'down') throw { code: 'failed', message: 'off' }; sent.push(item); });
+  failing.onError = (err) => errors.push(err.message);
+  failing.push({ action: 'down' });
+  failing.push({ action: 'up' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(errors, ['off']);
+  assert.equal(sent.at(-1).action, 'up');
+});
+
+test('wheelNotches: whole notches, away is positive, the rest kept', () => {
+  const h = {};
+  assert.equal(wheelNotches(h, { deltaY: -100, deltaMode: 0 }), 1);
+  assert.equal(wheelNotches(h, { deltaY: 250, deltaMode: 0 }), -2);
+  assert.equal(wheelNotches(h, { deltaY: 40, deltaMode: 0 }), 0, '50 + 40 is not a notch yet');
+  assert.equal(wheelNotches(h, { deltaY: 10, deltaMode: 0 }), -1);
+  assert.equal(wheelNotches({}, { deltaY: 3, deltaMode: 1 }), -1, 'three lines');
+});
+
+test('mouseErrorText', () => {
+  assert.match(mouseErrorText({ code: 'unauthorized' }), /administrators/);
+  assert.match(mouseErrorText({ code: 'unknown_command' }), /Update/);
+  assert.equal(mouseErrorText({ code: 'failed', message: 'Mouse from dashboard cards is off' }), 'Mouse from dashboard cards is off');
+  assert.equal(mouseErrorText(undefined), "The mouse didn't reach the PC");
+});
+
+test('Mini Monitor on without pictures says whether they arrive', () => {
+  const pad = { connected: true, screen_on: true, mini_monitor: true };
+  assert.match(padOverlay({ pad }).sub, /Waiting/);
+  assert.match(padOverlay({ pad, frameError: true }).sub, /can't show/);
+  assert.equal(padOverlay({ pad, frames: true, frameError: true }), null);
+  assert.equal(normaliseScreenConfig({}).mouse, false, 'the mouse is off unless asked for');
+  assert.equal(normaliseScreenConfig({ mouse: true }).mouse, true);
 });

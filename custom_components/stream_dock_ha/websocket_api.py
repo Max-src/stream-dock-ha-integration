@@ -108,6 +108,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_pads,
         ws_watch,
         ws_press,
+        ws_mouse,
     ):
         websocket_api.async_register_command(hass, handler)
 
@@ -511,6 +512,67 @@ async def ws_press(
             msg["pad_id"],
             "press_key",
             {"control": msg["control"]},
+            source="dashboard",
+            user=connection.user.name,
+        )
+    except NoAnswerError as err:
+        connection.send_error(msg["id"], ERR_FAILED, err.text)
+        return
+    except StreamDockError as err:
+        connection.send_error(msg["id"], err.code, err.text)
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        probatio.Required("type"): "stream_dock_ha/mouse",
+        probatio.Required("pad_id"): str,
+        probatio.Required("action"): probatio.In(
+            ["move", "down", "up", "click", "scroll"]
+        ),
+        probatio.Required("x"): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0, max=1)
+        ),
+        probatio.Required("y"): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0, max=1)
+        ),
+        probatio.Optional("button", default="left"): probatio.In(
+            ["left", "right", "middle"]
+        ),
+        probatio.Optional("amount", default=0): probatio.All(
+            int, probatio.Range(min=-20, max=20)
+        ),
+    }
+)
+@websocket_api.async_response
+async def ws_mouse(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Use the PC's mouse on Mini Monitor from a card (protocol 5.4).
+
+    It moves the PC's real pointer, so only administrators may.
+    """
+    if (hub := _hub_or_error(connection, msg["id"])) is None:
+        return
+    if msg["pad_id"] not in hub.pads:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Unknown pad")
+        return
+    if connection.user is None or not connection.user.is_admin:
+        connection.send_error(
+            msg["id"],
+            websocket_api.ERR_UNAUTHORIZED,
+            "Only administrators can use the mouse from here",
+        )
+        return
+    fields = {key: msg[key] for key in ("action", "x", "y", "button")}
+    if msg["action"] == "scroll":
+        fields["amount"] = msg["amount"]
+    try:
+        result = await hub.async_command(
+            msg["pad_id"],
+            "mouse",
+            fields,
             source="dashboard",
             user=connection.user.name,
         )
