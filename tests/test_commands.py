@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
+import probatio
 import pytest
 
 from custom_components.stream_dock_ha.const import DOMAIN
@@ -222,6 +223,67 @@ async def test_action_round_trip_with_response(
         "source": "action",
     }
     assert await task is None
+
+
+async def test_show_on_key_and_clear_on_key(
+    hass: HomeAssistant, app_with_pads: FakeApp
+) -> None:
+    """`show_on_key` passes its fields on; `key` may be a number, text or a name."""
+    device_id = get_device(hass, PAD_1).id
+
+    async def call(action: str, data: dict[str, Any]) -> dict[str, Any]:
+        task = hass.async_create_task(
+            hass.services.async_call(
+                DOMAIN, action, {"device_id": device_id, **data}, blocking=True
+            )
+        )
+        event = await _answer(app_with_pads, result={})
+        await task
+        return event["data"]
+
+    assert await call(
+        "show_on_key",
+        {
+            "key": 3,
+            "title": "Door",
+            "color": [255, 0, 0],
+            "seconds": 10,
+            "picture": "/local/door.png",
+            "fit": "fit",
+        },
+    ) == {
+        "command": "show_on_key",
+        "key": 3,
+        "title": "Door",
+        "color": [255, 0, 0],
+        "seconds": 10.0,
+        "picture": "/local/door.png",
+        "fit": "fit",
+        "pad": PAD_1,
+        "source": "action",
+    }
+    assert (await call("show_on_key", {"key": "key_4", "camera": "camera.door"}))[
+        "key"
+    ] == "key_4"
+    assert (await call("clear_on_key", {"control": "key_4"}))["control"] == "key_4"
+    assert await call("clear_on_key", {}) == {
+        "command": "clear_on_key",
+        "pad": PAD_1,
+        "source": "action",
+    }
+
+    # A key is needed to show something, and a camera and a picture don't mix.
+    for bad in (
+        {"title": "No key"},
+        {"key": 1, "camera": "camera.door", "picture": "/local/a.png"},
+        {"key": 1, "camera": "light.desk"},
+        {"key": 1, "fit": "zoom"},
+        {"key": 1, "seconds": -1},
+    ):
+        with pytest.raises(probatio.Invalid):
+            await hass.services.async_call(
+                DOMAIN, "show_on_key", {"device_id": device_id, **bad}, blocking=True
+            )
 
 
 async def test_copy_key_resolves_target_device(

@@ -573,3 +573,81 @@ clear_alert:
           entity:
             - integration: stream_dock_ha
               domain: select
+
+show_on_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      example: 3
+      selector:
+        text:
+    control:
+      example: key_3
+      selector:
+        text:
+    title:
+      example: Door
+      selector:
+        text:
+    message:
+      selector:
+        text:
+          multiline: true
+    icon:
+      selector:
+        icon:
+    color:
+      selector:
+        color_rgb:
+    seconds:
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s
+          mode: box
+    camera:
+      selector:
+        entity:
+          filter:
+            - domain: camera
+    picture:
+      example: /local/doorbell.png
+      selector:
+        text:
+    fit:
+      selector:
+        select:
+          options:
+            - fill
+            - fit
+            - stretch
+
+clear_on_key:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: stream_dock_ha
+          entity:
+            - integration: stream_dock_ha
+              domain: select
+    key:
+      example: 3
+      selector:
+        text:
+    control:
+      example: key_3
+      selector:
+        text:

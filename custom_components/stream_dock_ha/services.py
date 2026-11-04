@@ -37,6 +37,12 @@ TARGET: VolDictType = {
     probatio.Exclusive("key", "target"): KEY,
     probatio.Exclusive("control", "target"): cv.string,
 }
+# A key on whatever page the pad shows: its number (also as text) or a
+# control's name such as "key_3".
+ON_KEY: VolDictType = {
+    probatio.Exclusive("key", "target"): probatio.Any(KEY, cv.string),
+    probatio.Exclusive("control", "target"): cv.string,
+}
 TO_SCHEMA = probatio.All(
     probatio.Schema(
         {
@@ -129,6 +135,24 @@ ACTIONS: dict[str, ActionSpec] = {
         }
     ),
     "clear_alert": ActionSpec(),
+    # Something on one key for a while
+    "show_on_key": ActionSpec(
+        {
+            **ON_KEY,
+            probatio.Optional("title"): cv.string,
+            probatio.Optional("message"): cv.string,
+            probatio.Optional("icon"): cv.icon,
+            probatio.Optional("color"): RGB,
+            probatio.Optional("seconds"): probatio.All(
+                probatio.Coerce(float), probatio.Range(min=0, max=86400)
+            ),
+            probatio.Exclusive("camera", "picture"): cv.entity_domain("camera"),
+            probatio.Exclusive("picture", "picture"): cv.string,
+            probatio.Optional("fit"): probatio.In(["fill", "fit", "stretch"]),
+        },
+        needs_target=True,
+    ),
+    "clear_on_key": ActionSpec(ON_KEY),
 }
 
 

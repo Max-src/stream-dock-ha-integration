@@ -628,6 +628,74 @@
           "description": "The pad to act on."
         }
       }
+    },
+    "show_on_key": {
+      "name": "Show on a key",
+      "description": "Shows words, an icon, a camera or a picture on one key for a while, over whatever that key shows. Pressing the key takes it away and does nothing else.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "The key's number, counted from 1 across then down, or a control's name such as key_3."
+        },
+        "control": {
+          "name": "Control",
+          "description": "The key's control name, such as key_3, instead of its number."
+        },
+        "title": {
+          "name": "Title",
+          "description": "The first line of words."
+        },
+        "message": {
+          "name": "Message",
+          "description": "More words, below the title."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "Shown above the words. Without words or a picture, a bell is shown."
+        },
+        "color": {
+          "name": "Color",
+          "description": "The key's color. Strong amber if left empty."
+        },
+        "seconds": {
+          "name": "Seconds",
+          "description": "How long it stays. 0 keeps it until the key is pressed. 30 if left empty."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "A camera whose live picture fills the key."
+        },
+        "picture": {
+          "name": "Picture",
+          "description": "A picture that fills the key: an image entity (image.door), a path on Home Assistant (/local/door.png), a web address, or a data: address."
+        },
+        "fit": {
+          "name": "Fit",
+          "description": "How the camera or picture fills the key: fill (the default), fit or stretch."
+        }
+      }
+    },
+    "clear_on_key": {
+      "name": "Clear a key",
+      "description": "Takes away what Show on a key put on a key, or on all the pad's keys if no key is given.",
+      "fields": {
+        "device_id": {
+          "name": "Pad",
+          "description": "The pad to act on."
+        },
+        "key": {
+          "name": "Key",
+          "description": "The key's number, counted from 1 across then down, or a control's name such as key_3."
+        },
+        "control": {
+          "name": "Control",
+          "description": "The key's control name, such as key_3, instead of its number."
+        }
+      }
     }
   }
 }

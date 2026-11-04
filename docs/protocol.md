@@ -299,6 +299,8 @@ Commands added for the integration, also available through the event route:
 | `snapshot` | `pad`, optional `scale` (1–3, default 1) | A picture of the whole pad, laid out as in the layout with the body's `edge` round it, on the pad's front colour (dark grey if clear). The band's tiles sit on one black strip | `{ "content_type": "image/jpeg", "data": "<base64>" }` |
 | `show_alert` | `pad`, and optional `title`, `message`, `icon` (`mdi:…`), `color` ([r,g,b]), `seconds` (0 = until pressed; default 0), `camera` (a camera entity whose picture fills the alert) | Covers the pad's screen keys with one alert picture; see section 6 | `{}` |
 | `clear_alert` | `pad` | Takes the alert away | `{}` |
+| `show_on_key` | `pad`, `key` (a number counted from 1, also as text, or a control's name such as `key_3`) or `control`, and optional `title`, `message`, `icon` (`mdi:…`), `color` ([r,g,b]), `seconds` (0 = until pressed; default 30), `camera` (a camera entity) or `picture`, `fit` (`fill`, the default, `fit` or `stretch`) | Shows something on one screen key for a while; see section 6.1 | `{ "control": "key_3" }` |
+| `clear_on_key` | `pad`, optional `key` or `control` | Takes that off one key, or off all the pad's keys without a key | `{ "cleared": 1 }`, how many it took away |
 
 `press_key` takes `source` too. Its `control` accepts screen keys too (`key_3`), which is what the card sends. While Mini Monitor is on, a press from the physical pad or a pad on screen only brings the keys back, as today. A press from `dashboard` or `action` runs the key and leaves Mini Monitor on, because whoever sent it is looking at the card, not the pad. Alerts and a dark screen swallow presses from every source, as section 6 says. Section 7 says what Home Assistant is allowed to press.
 
@@ -373,6 +375,17 @@ An alert covers all of a pad's screen keys with one picture, drawn across the ga
 - **`seconds`:** a value above 0 takes the alert away by itself after that long.
 - **A new alert replaces the old one.** Alerts aren't saved: they're gone when the app restarts.
 
+### 6.1 Something on one key (`show_on_key`)
+
+Like an alert, but on a single screen key, over whatever that key shows on the pad's running profile, whichever page it's on. It shows on the pad, on pads on screen and on cards.
+
+- **The key** is addressed on the pad's running profile: `key` as a number (`3` or `"3"`) or a control's name (`"key_3"`), or `control`. A button, a knob or a band tile is refused: it has no key screen.
+- **What it shows:** the colour (default the alerts' amber), the `title` and `message` as lines of words, and the `icon` above them. Without words or a picture, a bell. With `camera`, the camera's live picture fills the key, refreshed as camera keys are. With `picture`, a still picture fills it: an `image.*` entity (fetched from `/api/image_proxy/…`), a path on Home Assistant (`/local/door.png`), a web address, or a `data:image/…;base64,…` address. The app's token is only sent to Home Assistant's own address. A picture that can't be fetched or read is refused with the reason, and nothing is shown. `camera` and `picture` can't go together. Words are drawn over a camera or picture.
+- **`seconds`:** 30 when left out; 0 keeps it until the key is pressed.
+- **Several keys** can show something at once. A new one on the same key replaces the old one. An alert covers them all while it's up.
+- **Pressing that key** (on the pad, on screen, on a card or with `press_key`, but not a keyboard shortcut) takes it away and does nothing else, announced as a press with `dismissed: true` and that key's control. Other keys work as usual. A press that only wakes a dark screen, takes Mini Monitor away or dismisses an alert leaves it up. A `press_key` naming another profile or page than the one showing presses that key as usual.
+- They aren't saved: they're gone when the app restarts.
+
 ## 7. Who may do what
 
 ### In the app
@@ -435,6 +448,7 @@ Each action takes `device_id` (a pad device; a selector limited to this integrat
 | `get_key`, `get_state` | `get_key`, `state` | only |
 | `set_brightness`, `set_screen`, `mini_monitor` | same | optional |
 | `show_alert`, `clear_alert` | same | optional |
+| `show_on_key`, `clear_on_key` | same; `key` takes a number or a control's name | optional |
 
 An action fails (raises `HomeAssistantError`) when the app answers `ok: false`, the PC is offline, or there's no answer within 10 s.
 
