@@ -275,14 +275,63 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
     throw { code: 'unknown_command', message: 'Unknown command' };
   }
 
-  const hass = {
+  // The 293S's entities, as the integration makes them (protocol 8).
+  const P = '9d04e1b7a2c35f18';
+  const PROFILES = ['Home', 'Games', 'Work'];
+  const entity = (entity_id, translation_key) => ({ entity_id, platform: 'stream_dock_ha', device_id: 'dev_293s', translation_key });
+  const entities = {
+    'select.desk_pad_profile': entity('select.desk_pad_profile', 'profile'),
+    'number.desk_pad_page': entity('number.desk_pad_page', 'page'),
+    'event.desk_pad_press': entity('event.desk_pad_press', 'press'),
+    'switch.desk_pad_mini_monitor': entity('switch.desk_pad_mini_monitor', 'mini_monitor'),
+  };
+  function statesNow() {
+    const s = pads.get(P).state;
+    return {
+      'select.desk_pad_profile': { state: s.profile.name, attributes: { options: PROFILES } },
+      'number.desk_pad_page': { state: String(s.page), attributes: { min: 1, max: s.pages, step: 1 } },
+      'event.desk_pad_press': pressState,
+      'switch.desk_pad_mini_monitor': { state: s.mini_monitor ? 'on' : 'off', attributes: {} },
+    };
+  }
+  let pressState = { state: 'unknown', attributes: { event_type: null } };
+  const hassListeners = new Set();
+  // A new hass object on every change, as Home Assistant gives cards.
+  function newHass() {
+    hass = { ...hass, states: statesNow() };
+    hassListeners.forEach((cb) => cb(hass));
+  }
+
+  async function callService(domain, service, data) {
+    log('service', { domain, service, data });
+    await delay(latency);
+    const p = pads.get(P);
+    if (domain === 'select') {
+      const at = PROFILES.indexOf(p.state.profile.name);
+      const name = service === 'select_option' ? data.option
+        : PROFILES[(at + (service === 'select_next' ? 1 : PROFILES.length - 1)) % PROFILES.length];
+      p.state = { ...p.state, profile: { id: name, name }, page: 1 };
+      hashCounter++; sendPad(p); sendPictures(p, [], true);
+    } else if (domain === 'number' && service === 'set_value') {
+      p.state = { ...p.state, page: Math.max(1, Math.min(p.state.pages, data.value)) };
+      hashCounter++; sendPad(p); sendPictures(p, [], true);
+    } else if (domain === 'switch') {
+      p.state = { ...p.state, mini_monitor: service === 'turn_on' };
+      sendPad(p);
+    } else {
+      throw { code: 'not_found', message: `No service ${domain}.${service}` };
+    }
+    newHass();
+  }
+
+  let hass = {
     connection,
     states: {},
-    entities: {
-      'select.desk_pad_profile': { entity_id: 'select.desk_pad_profile', platform: 'stream_dock_ha', device_id: 'dev_293s' },
-    },
+    entities,
     callWS: (msg) => handleCommand(msg),
+    callService: (...args) => callService(...args),
   };
+  hass.states = statesNow();
 
   // Controls for the harness and scenarios.
   const control = {
@@ -290,7 +339,7 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
     setOnline(padId, online) { const p = pads.get(padId); p.online = online; sendPad(p); },
     setConnected(padId, connected) { const p = pads.get(padId); p.state = { ...p.state, connected }; sendPad(p); },
     setScreen(padId, on) { const p = pads.get(padId); p.state = { ...p.state, screen_on: on }; sendPad(p); },
-    setMiniMonitor(padId, on) { const p = pads.get(padId); p.state = { ...p.state, mini_monitor: on }; sendPad(p); },
+    setMiniMonitor(padId, on) { const p = pads.get(padId); p.state = { ...p.state, mini_monitor: on }; sendPad(p); newHass(); },
     // A Mini Monitor frame (protocol 3.6), as the app sends it: one picture
     // of a screen, laid out over the keys with the screen hidden under the gaps.
     sendFrame(padId, step = 0, seamless = false) {
@@ -340,6 +389,13 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
       listeners.ready.forEach((cb) => cb(connection, 'ready'));
     },
     subscriberCount(padId) { return pads.get(padId).subs.size; },
+    // A press on the real pad: the press event entity changes.
+    physicalPress(name, source = 'pad') {
+      pressState = { state: new Date().toISOString(), attributes: { event_type: name, source } };
+      newHass();
+    },
+    onHass(cb) { hassListeners.add(cb); },
+    get hass() { return hass; },
   };
 
   return { hass, control };

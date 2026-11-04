@@ -38,6 +38,12 @@ const shots = [
   ['no-ha-card', '?shots&nohacard', '1340,470'],
   ['hidpi-2x', '?shots', '1340,470', ['--force-device-scale-factor=2']],
   ['narrow', '?shots&narrow&s=mini', '900,330'],
+  ['extras', '?shots&s=extras', '1340,560'],
+  ['extras-light', '?shots&s=extras&theme=light', '1340,560'],
+  ['keys', '?shots&s=keys', '1340,330'],
+  ['keys-light', '?shots&s=keys&theme=light', '1340,330'],
+  ['screen-card-off', '?shots&s=screen', '1340,420'],
+  ['screen-card-on', '?shots&s=screen&on', '1340,420'],
 ];
 const only = process.argv[2];
 for (const [name, query, size, extra = []] of shots) {

@@ -5,6 +5,8 @@ import {
   clampScale, chooseScale, keySizePx, computeLayout, mergePictures, humanizeControl,
   pressErrorText, padOverlay, resolvePadId, headerDetail, normaliseConfig, StreamDockCard,
   retryDelayMs, RETRY_DELAYS_MS, bodyLook, laidOut, frameParts, frameBox,
+  parseControls, focusLayout, padEntities, pressedControl, normaliseKeyConfig, normaliseScreenConfig,
+  screenNote, StreamDockKeyCard, StreamDockScreenCard,
 } from '../../custom_components/stream_dock_ha/frontend/stream-dock-card.js';
 import { layout293s, layoutAkp03e, layoutDashboard, bodyWhite, bodyClear } from '../layouts.mjs';
 
@@ -221,7 +223,13 @@ test('headerDetail', () => {
 });
 
 test('normaliseConfig', () => {
-  assert.deepEqual(normaliseConfig({ pad_id: 'x' }), { pad_id: 'x', show_name: true, show_profile: true, show_card_background: true });
+  assert.deepEqual(normaliseConfig({ pad_id: 'x' }), {
+    pad_id: 'x', show_name: true, show_profile: true, show_card_background: true,
+    tilt: false, show_page_buttons: false, press_effect: true, show_pad_presses: true,
+  });
+  // Each extra can be turned the other way.
+  const turned = normaliseConfig({ tilt: true, show_page_buttons: true, press_effect: false, show_pad_presses: false });
+  assert.deepEqual([turned.tilt, turned.show_page_buttons, turned.press_effect, turned.show_pad_presses], [true, true, false, false]);
   assert.equal(normaliseConfig({ show_card_background: false }).show_card_background, false);
   assert.equal(normaliseConfig({ title: 'Desk' }).title, 'Desk');
   assert.equal('title' in normaliseConfig({ title: '  ' }), false);
@@ -236,10 +244,12 @@ test('normaliseConfig', () => {
 test('config form and Lovelace hooks', () => {
   const form = StreamDockCard.getConfigForm();
   // Sections, as the other cards have, each opening in place.
-  assert.deepEqual(form.schema.map((s) => [s.type, s.title]), [['expandable', 'Pad'], ['expandable', 'Appearance'], ['expandable', 'Pictures']]);
+  assert.deepEqual(form.schema.map((s) => [s.type, s.title]),
+    [['expandable', 'Pad'], ['expandable', 'Appearance'], ['expandable', 'Extras'], ['expandable', 'Pictures']]);
   assert.ok(form.schema.every((s) => s.flatten === true));
   const fields = form.schema.flatMap((s) => s.schema);
-  assert.deepEqual(fields.map((f) => f.name), ['device_id', 'title', 'show_card_background', 'show_name', 'show_profile', 'scale']);
+  assert.deepEqual(fields.map((f) => f.name), ['device_id', 'title', 'show_card_background', 'show_name', 'show_profile', 'tilt',
+    'show_page_buttons', 'press_effect', 'show_pad_presses', 'scale']);
   assert.ok(fields.every((f) => typeof form.computeLabel(f) === 'string'));
   const device = fields.find((s) => s.name === 'device_id');
   assert.deepEqual(device.selector.device.filter, [{ integration: 'stream_dock_ha' }]);
@@ -445,4 +455,100 @@ test('a card nobody can see watches nothing, so nothing is streamed to it', asyn
   await card._doSync();
   assert.equal(unsubscribed, 1, 'out of view again: the watch ends');
   assert.equal(card._watch, null);
+});
+
+test('parseControls: numbers, ranges and names', () => {
+  assert.deepEqual(parseControls('3'), ['key_3']);
+  assert.deepEqual(parseControls(3), ['key_3']);
+  assert.deepEqual(parseControls('1, 2, 6-7'), ['key_1', 'key_2', 'key_6', 'key_7']);
+  assert.deepEqual(parseControls('7-6'), ['key_6', 'key_7']);
+  assert.deepEqual(parseControls('Key_3 band_1;top_knob'), ['key_3', 'band_1', 'top_knob']);
+  assert.deepEqual(parseControls(['2', 'key_2', 2]), ['key_2']);
+  assert.deepEqual(parseControls('0, -, <b>'), []);
+  assert.deepEqual(parseControls(undefined), []);
+  assert.equal(parseControls('1-1000').length, 64, 'a silly range stays small');
+});
+
+test('focusLayout keeps only the chosen controls, moved to 0, 0', () => {
+  const one = focusLayout(layout293s, ['key_7']);
+  assert.equal(one.controls.length, 1);
+  assert.deepEqual([one.controls[0].x, one.controls[0].y, one.width, one.height], [0, 0, 1, 1]);
+  const square = focusLayout(layout293s, ['key_1', 'key_2', 'key_6', 'key_7']);
+  assert.deepEqual([square.width, square.height], [2.25, 2.25]);
+  assert.notEqual(one.version, square.version);
+  // A knob by its group or by one part brings all three parts.
+  assert.equal(focusLayout(layoutAkp03e, ['top_knob']).controls.length, 3);
+  assert.equal(focusLayout(layoutAkp03e, ['top_knob_press']).controls.length, 3);
+  assert.equal(focusLayout(layout293s, ['key_99']), null);
+  assert.equal(focusLayout(null, ['key_1']), null);
+  // Drawn as one key, filling the card.
+  const drawn = laidOut(one, { front: null, edge: 0.06 });
+  assert.equal(drawn.items.length, 1);
+  assert.ok(Math.abs(drawn.items[0].box.width - (1 / 1.12) * 100) < 1e-9);
+});
+
+test('padEntities finds the pad entities by translation key, else by name', () => {
+  const hass = { entities: {
+    'select.desk_profile': { entity_id: 'select.desk_profile', platform: 'stream_dock_ha', device_id: 'd1', translation_key: 'profile' },
+    'number.desk_page': { entity_id: 'number.desk_page', platform: 'stream_dock_ha', device_id: 'd1', translation_key: 'page' },
+    'event.desk_press': { entity_id: 'event.desk_press', platform: 'stream_dock_ha', device_id: 'd1' },
+    'switch.desk_mm': { entity_id: 'switch.desk_mm', platform: 'stream_dock_ha', device_id: 'd1', translation_key: 'mini_monitor' },
+    'select.other_profile': { entity_id: 'select.other_profile', platform: 'stream_dock_ha', device_id: 'd2', translation_key: 'profile' },
+    'event.desk_x_press': { entity_id: 'event.desk_x_press', platform: 'other', device_id: 'd1' },
+  } };
+  assert.deepEqual(padEntities(hass, 'd1'),
+    { profile: 'select.desk_profile', page: 'number.desk_page', press: 'event.desk_press', mini_monitor: 'switch.desk_mm' });
+  assert.deepEqual(padEntities(hass, 'nope'), { profile: null, page: null, press: null, mini_monitor: null });
+  assert.equal(padEntities(undefined, 'd1').press, null);
+});
+
+test('pressedControl reads the press event, leaving dismissals out', () => {
+  assert.deepEqual(pressedControl({ state: '2026-11-04T10:00:00Z', attributes: { event_type: 'key_3', source: 'pad' } }),
+    { control: 'key_3', at: '2026-11-04T10:00:00Z', source: 'pad' });
+  assert.equal(pressedControl({ state: 'x', attributes: { event_type: 'dismissed' } }), null);
+  assert.equal(pressedControl({ state: 'unknown', attributes: {} }), null);
+  assert.equal(pressedControl(undefined), null);
+});
+
+test('the key card and its config', () => {
+  const cfg = normaliseKeyConfig({ device_id: 'd', controls: '1-2' });
+  assert.deepEqual(cfg.focus, ['key_1', 'key_2']);
+  assert.equal(cfg.show_name, false, 'no header unless asked for');
+  assert.equal(cfg.show_pad_body, false);
+  assert.equal(cfg.press_effect, true);
+  assert.equal(normaliseKeyConfig({ controls: '1', show_name: true }).show_name, true);
+  assert.throws(() => normaliseKeyConfig(null));
+  const form = StreamDockKeyCard.getConfigForm();
+  const fields = form.schema.flatMap((s) => s.schema);
+  assert.ok(fields.some((f) => f.name === 'controls' && f.required));
+  assert.ok(fields.every((f) => typeof form.computeLabel(f) === 'string'));
+  assert.equal(StreamDockKeyCard.getStubConfig(undefined).controls, '1');
+  const card = new StreamDockKeyCard();
+  card._config = cfg;
+  const drawn = card._laidOut(layout293s, bodyWhite);
+  assert.deepEqual(drawn.items.map((i) => i.name), ['key_1', 'key_2']);
+  assert.equal(drawn.look.bare, true);
+  assert.equal(drawn.look.front, null, 'no pad round the keys');
+  card._config = normaliseKeyConfig({ controls: '1', show_pad_body: true });
+  assert.equal(card._laidOut(layout293s, bodyWhite).look.front, 'rgb(255, 255, 255)');
+  card._config = normaliseKeyConfig({ controls: '40' });
+  assert.equal(card._laidOut(layout293s, bodyWhite), null);
+  assert.match(card._nothingToShow(), /no Key 40/);
+});
+
+test('the screen card: config and what it says', () => {
+  const cfg = normaliseScreenConfig({ device_id: 'd' });
+  assert.equal(cfg.show_turn_on, true);
+  assert.equal(cfg.show_profile, false);
+  assert.equal(StreamDockScreenCard.getConfigForm().schema.flatMap((s) => s.schema).some((f) => f.name === 'show_turn_on'), true);
+  assert.equal(screenNote({ pad: { mini_monitor: true }, frames: true }), null);
+  assert.deepEqual(screenNote({ pad: { mini_monitor: false }, canTurnOn: true }), { text: 'Mini Monitor is off.', button: true });
+  assert.equal(screenNote({ pad: { mini_monitor: false } }).button, false);
+  assert.match(screenNote({ pad: { mini_monitor: true } }).text, /Waiting/);
+  assert.match(screenNote({ pad: { mini_monitor: null } }).text, /can't/);
+  assert.equal(screenNote({}), null);
+  // It asks for the smallest key pictures, which it doesn't show.
+  const card = new StreamDockScreenCard();
+  card._config = cfg;
+  assert.equal(card._desiredScale(), 1);
 });

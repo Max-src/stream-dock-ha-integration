@@ -7,7 +7,8 @@ With it, Home Assistant:
 - shows each PC and each pad as a device, with entities for the profile, page, screen, Mini Monitor and more;
 - has actions for everything the app can do from Home Assistant: profiles, pages, keys, brightness, alerts;
 - fires a device trigger and a `stream_dock_ha_event` for every press;
-- serves a dashboard card, `custom:stream-dock-card`, that shows a pad's keys live and lets you press them.
+- serves dashboard cards: a whole pad (`custom:stream-dock-card`), one key or a few (`custom:stream-dock-key-card`), and Mini Monitor as one screen (`custom:stream-dock-screen-card`), all live, with keys you can press;
+- can show something on one key for a while: words, an icon, a picture or a camera (`stream_dock_ha.show_on_key`).
 
 The app connects to Home Assistant over its usual connection. Nothing listens on the PC. When the app closes, that PC's entities become unavailable.
 
@@ -43,11 +44,13 @@ Keys that open programs or websites, press keys or type text can't be pressed fr
 
 **Only administrators can press keys on dashboards** (off by default), under the integration's **Configure**. When it's off, anyone logged in to Home Assistant can press keys on a card.
 
-## The card
+## The cards
 
-The integration adds the card to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download. It lists the card in the dashboards' resources (or, when those are written in YAML, loads it with every page). The browser checks for a newer card at each page load, so after updating the integration a new card shows with a page refresh; changes to the integration itself still need a restart.
+The integration adds the cards to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download. It lists the card in the dashboards' resources (or, when those are written in YAML, loads it with every page). The browser checks for a newer card at each page load, so after updating the integration a new card shows with a page refresh; changes to the integration itself still need a restart.
 
-To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream Dock pad**, then pick a pad. The editor's settings are in three sections:
+### Stream Dock pad
+
+To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream Dock pad**, then pick a pad. The editor's settings are in four sections:
 
 | Section | Setting | What it does |
 | --- | --- | --- |
@@ -56,6 +59,10 @@ To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream 
 | Appearance | Show card background | Off: no frame round the card, and the pad uses all the room. On by default |
 | Appearance | Show the title | The title (or pad name) above the keys. On by default |
 | Appearance | Show the profile and page | What the pad is showing. On by default |
+| Appearance | Tilted 3D look (`tilt`) | The pad leans back as if lying on a desk, with its thickness and a shadow. Keys still press. Off by default |
+| Extras | Profile and page buttons (`show_page_buttons`) | Buttons under the pad to change its profile and page, through its Profile and Page entities. Off by default |
+| Extras | Press effect (`press_effect`) | The key sinks and lights up where you tap it. On by default |
+| Extras | Show presses made on the pad (`show_pad_presses`) | A ring flashes round a key pressed on the real pad, on a pad on screen or by an automation. On by default |
 | Pictures | Picture scale | 1 to 3. Leave it empty to match the screen |
 
 Or in YAML:
@@ -67,6 +74,10 @@ title: Desk
 show_card_background: true
 show_name: true
 show_profile: true
+tilt: false
+show_page_buttons: false
+press_effect: true
+show_pad_presses: true
 scale: 2
 ```
 
@@ -100,6 +111,36 @@ For each PC:
 | Last press (sensor) | The time of the last press on any of its pads |
 | Online (binary sensor) | Whether the app is connected. Always available |
 
+### Stream Dock key
+
+One key of a pad, or a few, live and pressable: a key for the coffee machine next to the kitchen lights, say. Pick **Stream Dock key**, a pad, and the keys:
+
+```yaml
+type: custom:stream-dock-key-card
+device_id: <the pad's device id>
+controls: "3"            # or "1, 2, 6-7" for a group, or band_1, button_2, top_knob
+show_card_background: true
+show_pad_body: false     # true: the pad's front round the keys
+show_name: false
+press_effect: true
+show_pad_presses: true
+```
+
+Keys are counted as in the app: left to right, then down, from 1.
+
+### Stream Dock Mini Monitor
+
+A pad's Mini Monitor as one screen, in the screen's own shape, without the gaps between keys. When Mini Monitor is off, it says so and offers a button to turn it on (`show_turn_on: false` hides it; it needs permission to change the pad's Mini Monitor switch). It only receives pictures while it can be seen.
+
+```yaml
+type: custom:stream-dock-screen-card
+device_id: <the pad's device id>
+title: Desk screen
+show_card_background: true
+show_name: true
+show_turn_on: true
+```
+
 ## Actions
 
 Each action takes a pad's `device_id`, plus the fields of the app's command of the same name.
@@ -112,7 +153,8 @@ Each action takes a pad's `device_id`, plus the fields of the app's command of t
 | `set_key`, `add_key`, `clear_key`, `press_key`, `swap_keys`, `copy_key`, `move_key` | Keys. In `copy_key` and `move_key`, `to` can hold a `device_id` to target another pad |
 | `get_key`, `get_state` | Return the key or the pads' state as response data |
 | `set_brightness`, `set_screen`, `mini_monitor` | The pad |
-| `show_alert`, `clear_alert` | Alerts, with an optional camera |
+| `show_alert`, `clear_alert` | Alerts over the whole pad, with an optional camera |
+| `show_on_key`, `clear_on_key` | Something on one key for a while: words, an icon, a picture or a camera. Pressing that key takes it away and does nothing else |
 
 Example:
 
@@ -125,6 +167,24 @@ data:
   camera: camera.front_door
   seconds: 60
 ```
+
+Or on one key, for 30 seconds unless `seconds` says otherwise (0: until pressed):
+
+```yaml
+action: stream_dock_ha.show_on_key
+data:
+  device_id: 0123456789abcdef0123456789abcdef
+  key: 3
+  title: Washer
+  message: 12 min left
+  icon: mdi:washing-machine
+  color: [33, 150, 243]
+  seconds: 60
+```
+
+`picture` takes an `image.*` entity, a Home Assistant path such as `/local/doorbell.png`, a web address or a `data:` address; `camera` a camera entity, refreshed live; `fit` is `fill`, `fit` or `stretch`. `clear_on_key` takes the key away, or every key of the pad without one.
+
+To try it by hand, [`examples/node-red/stream-dock-playground.json`](examples/node-red/stream-dock-playground.json) is a Node-RED flow with buttons for each kind (words, a camera, a picture, the weather, a countdown, a wave of colours) and one that reacts when such a key is pressed. In Node-RED: **Menu > Import**, pick the file, **Import**, then **Deploy**. Set the pad in the tab's `PAD` environment variable, and the Home Assistant server in the nodes if yours isn't the add-on's.
 
 An action fails when the PC is offline, when the app doesn't answer within 10 seconds, or when the app says no. Actions that change something can only be used by administrators, and by automations and scripts.
 

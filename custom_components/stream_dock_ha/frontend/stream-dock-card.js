@@ -1,7 +1,9 @@
 /*
- * Stream Dock pad card: custom:stream-dock-card
+ * Stream Dock cards:
+ * - custom:stream-dock-card, a live "virtual stream dock" for one pad;
+ * - custom:stream-dock-key-card, one key of it, or a few;
+ * - custom:stream-dock-screen-card, its Mini Monitor as one screen.
  *
- * Shows a live "virtual stream dock" for one pad of the Stream Dock HA app.
  * Pressing a key here presses the real one. Served by the stream_dock_ha
  * integration; see docs/protocol.md, sections 3.2, 3.4, 5 and 6.
  *
@@ -9,7 +11,9 @@
  */
 
 const CARD_TYPE = 'stream-dock-card';
-const CARD_VERSION = '0.1.7';
+const KEY_CARD_TYPE = 'stream-dock-key-card';
+const SCREEN_CARD_TYPE = 'stream-dock-screen-card';
+const CARD_VERSION = '0.1.8';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -360,9 +364,93 @@ export function normaliseConfig(config) {
   out.show_profile = out.show_profile !== false;
   out.show_card_background = out.show_card_background !== false;
   if (typeof out.title !== 'string' || !out.title.trim()) delete out.title;
+  // Extras, each one can be turned off or on in the editor.
+  out.tilt = out.tilt === true;
+  out.show_page_buttons = out.show_page_buttons === true;
+  out.press_effect = out.press_effect !== false;
+  out.show_pad_presses = out.show_pad_presses !== false;
   // Cards saved before 0.1.2 may still say whether to vibrate.
   delete out.haptic;
   return out;
+}
+
+/**
+ * The controls a one-key card shows, from what the person typed: a key
+ * number (3), several (1, 2, 6-7), or control names (key_3, band_1,
+ * button_2, top_knob). Keeps their order and drops repeats.
+ */
+export function parseControls(value) {
+  const parts = Array.isArray(value) ? value : String(value == null ? '' : value).split(/[\s,;]+/);
+  const out = [];
+  const add = (name) => { if (name && !out.includes(name)) out.push(name); };
+  for (const raw of parts) {
+    const text = String(raw == null ? '' : raw).trim().toLowerCase();
+    if (!text) continue;
+    const range = /^(\d+)\s*-\s*(\d+)$/.exec(text);
+    if (range) {
+      const [a, b] = [Number(range[1]), Number(range[2])];
+      for (let n = Math.min(a, b); n <= Math.max(a, b) && n - Math.min(a, b) < 64; n++) if (n > 0) add(`key_${n}`);
+    } else if (/^\d+$/.test(text)) {
+      if (Number(text) > 0) add(`key_${Number(text)}`);
+    } else if (/^[a-z0-9_]+$/.test(text)) {
+      add(text);
+    }
+  }
+  return out;
+}
+
+/**
+ * A Layout with only the controls `names` asks for, moved so they start at
+ * 0, 0 and sized to what they cover. A knob is asked for by its group
+ * (top_knob) or any of its parts. Null when none of them is in the layout.
+ */
+export function focusLayout(layout, names) {
+  const wanted = new Set(names || []);
+  const controls = (layout && Array.isArray(layout.controls) ? layout.controls : []).filter((c) => {
+    if (!c || typeof c.name !== 'string') return false;
+    if (wanted.has(c.name)) return true;
+    if (!KNOB_PARTS[c.type]) return false;
+    const group = typeof c.group === 'string' && c.group ? c.group : c.name.replace(/_(left|right|press)$/, '');
+    return wanted.has(group) || ['left', 'right', 'press'].some((part) => wanted.has(`${group}_${part}`));
+  });
+  if (!controls.length) return null;
+  const minX = Math.min(...controls.map((c) => num(c.x)));
+  const minY = Math.min(...controls.map((c) => num(c.y)));
+  const moved = controls.map((c) => ({ ...c, x: num(c.x) - minX, y: num(c.y) - minY }));
+  return {
+    version: `${layout && layout.version != null ? layout.version : ''}:${[...wanted].join(',')}`,
+    width: Math.max(...moved.map((c) => c.x + (num(c.w, 1) > 0 ? num(c.w, 1) : 1))),
+    height: Math.max(...moved.map((c) => c.y + (num(c.h, 1) > 0 ? num(c.h, 1) : 1))),
+    controls: moved,
+  };
+}
+
+/**
+ * The pad's own entities, found by its device and their translation keys:
+ * the profile select, the page number, the press event and the Mini Monitor
+ * switch. Any can be missing.
+ */
+export function padEntities(hass, deviceId) {
+  const found = { profile: null, page: null, press: null, mini_monitor: null };
+  if (!hass || !hass.entities || !deviceId) return found;
+  const domains = { profile: 'select', page: 'number', press: 'event', mini_monitor: 'switch' };
+  for (const entry of Object.values(hass.entities)) {
+    if (!entry || entry.device_id !== deviceId || entry.platform !== 'stream_dock_ha') continue;
+    const id = String(entry.entity_id || '');
+    for (const [key, domain] of Object.entries(domains)) {
+      if (found[key] || !id.startsWith(`${domain}.`)) continue;
+      if (entry.translation_key ? entry.translation_key === key : id.endsWith(`_${key}`)) found[key] = id;
+    }
+  }
+  return found;
+}
+
+/** The control a press event entity's state names, or null for none or a dismissal. */
+export function pressedControl(stateObj) {
+  if (!stateObj || !stateObj.attributes) return null;
+  const type = stateObj.attributes.event_type;
+  if (typeof type !== 'string' || !type || type === 'dismissed') return null;
+  return { control: type, at: String(stateObj.state || ''), source: stateObj.attributes.source || null };
 }
 
 /* ------------------------------------------------------------------ */
@@ -476,6 +564,80 @@ ha-card.plain .header { padding: 0 2px 8px; }
 .pad.mini.seamless .covered { visibility: hidden; }
 .key.down { transform: scale(.92); filter: brightness(.82); transition-duration: .05s; }
 
+/* Press effect: the key sinks and a soft light spreads from where it was hit. */
+.fx .key.down, .fx .band.down { transform: scale(.9) translateY(calc(var(--u) * .02)); }
+.ripple { position: absolute; border-radius: 50%; pointer-events: none; z-index: 2;
+  width: 160%; aspect-ratio: 1; left: var(--rx, 50%); top: var(--ry, 50%);
+  background: radial-gradient(circle, rgba(255,255,255,.55) 0%, rgba(255,255,255,.18) 40%, rgba(255,255,255,0) 70%);
+  transform: translate(-50%, -50%) scale(.1); opacity: 1; animation: ripple .45s ease-out forwards; }
+@keyframes ripple { to { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+
+/* A press made elsewhere (the pad, a pad on screen, an automation): a ring round the key. */
+.ctl.lit::after, .knob.lit::after {
+  content: ''; position: absolute; inset: calc(var(--u) * -.05); border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 calc(var(--u) * .035) var(--primary-color, #03a9f4), 0 0 calc(var(--u) * .25) var(--primary-color, #03a9f4);
+  animation: lit .9s ease-out forwards; z-index: 3; }
+.ctl.lit { overflow: visible; }
+.ctl.lit img, .ctl.lit .mm { border-radius: inherit; }
+@keyframes lit { 0% { opacity: 1; } 60% { opacity: .9; } 100% { opacity: 0; } }
+
+/* Tilted: the pad lies on the desk, leaning back, with its thickness and a
+   soft shadow under it. The keys stay live and pressable. */
+.frame.tilted { perspective: calc(var(--u) * 16); perspective-origin: 50% 0%;
+  aspect-ratio: var(--bw) / calc(var(--bh) * .86 + .5); }
+.frame.tilted .pad, .frame.tilted .overlay {
+  inset: auto 3% calc(var(--u) * .34) 3%; height: calc(100% - var(--u) * .34);
+  transform-origin: 50% 100%; transform: rotateX(24deg) scale(.95, 1.1); }
+.frame.tilted .pad {
+  --side: #0b0c0e;
+  box-shadow: 0 calc(var(--u) * .16) 0 0 var(--side), 0 calc(var(--u) * .3) calc(var(--u) * .3) rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.1);
+}
+.frame.tilted .pad.painted { --side: color-mix(in srgb, var(--front) 72%, #000); }
+.frame.tilted .pad.painted.light { --side: color-mix(in srgb, var(--front) 82%, #000);
+  box-shadow: 0 calc(var(--u) * .16) 0 0 var(--side), 0 calc(var(--u) * .3) calc(var(--u) * .3) rgba(0,0,0,.22),
+    0 0 0 1px rgba(0,0,0,.06); }
+.frame.tilted .pad.clear { box-shadow: none; }
+.frame.tilted .key { box-shadow: 0 calc(var(--u) * .04) 0 rgba(0,0,0,.55), 0 calc(var(--u) * .06) calc(var(--u) * .08) rgba(0,0,0,.3); }
+.frame.tilted .pad.light .key { box-shadow: 0 calc(var(--u) * .04) 0 rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.05); }
+
+/* Profile and page buttons under the pad. */
+.bar { display: flex; align-items: center; gap: 6px; padding-top: 10px; flex-wrap: wrap; }
+.bar[hidden] { display: none; }
+.bar .group { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.bar .group[hidden] { display: none; }
+.bar .group.profile { flex: 1 1 auto; }
+.bar button {
+  font: inherit; font-size: 18px; line-height: 1; width: 32px; height: 32px; border-radius: 50%; border: none;
+  background: none; color: var(--primary-text-color); cursor: pointer; flex: 0 0 auto;
+}
+.bar button:hover { background: rgba(127,127,127,.15); }
+.bar button:disabled { opacity: .35; cursor: default; background: none; }
+.bar select {
+  font: inherit; font-size: 14px; min-width: 0; flex: 1 1 auto; max-width: 220px; padding: 5px 8px; border-radius: 8px;
+  color: var(--primary-text-color); background: var(--secondary-background-color, rgba(127,127,127,.12));
+  border: 1px solid var(--divider-color, rgba(127,127,127,.3));
+}
+.bar .page { font-size: 13px; color: var(--secondary-text-color); white-space: nowrap; min-width: 42px; text-align: center; }
+
+/* One-key card: the keys alone, without the pad round them. */
+.pad.bare { background: none; box-shadow: none; outline: none; }
+
+/* Mini Monitor screen card. */
+.screen { position: absolute; inset: 0; background: #000; border-radius: 6px; overflow: hidden;
+  box-shadow: 0 0 0 3px #1a1b1e, 0 2px 8px rgba(0,0,0,.3); }
+ha-card.plain .screen { box-shadow: none; }
+.screen .shot { position: absolute; inset: 0; background-image: var(--mm); background-size: contain;
+  background-position: center; background-repeat: no-repeat; }
+.screen-off { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  position: absolute; inset: 0; color: rgba(255,255,255,.75); font-size: 14px; text-align: center; padding: 12px; }
+.screen-off[hidden] { display: none; }
+.screen-off button {
+  font: inherit; font-size: 14px; padding: 7px 16px; border-radius: 18px; border: none; cursor: pointer;
+  background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff);
+}
+.screen-off button[hidden] { display: none; }
+
 .button {
   border-radius: 50%;
   background: radial-gradient(circle at 50% 35%, #3a3c41 0%, #232428 70%);
@@ -557,8 +719,54 @@ ha-card.plain .header { padding: 0 2px 8px; }
 .message.error { color: var(--error-color, #db4437); }
 @media (prefers-reduced-motion: reduce) {
   .pad, .ctl, .knob, .knob .body, .knob .centre, .toast { transition: none !important; }
+  .ripple { display: none; }
+  .ctl.lit::after, .knob.lit::after { animation: none; }
 }
 `;
+
+/** The editors' labels and help, shared by the three cards. */
+const LABELS = {
+  device_id: 'Pad',
+  title: 'Card title (optional)',
+  controls: 'Keys',
+  show_card_background: 'Show card background',
+  show_pad_body: 'Show the pad round the keys',
+  show_name: 'Show the title',
+  show_profile: 'Show the profile and page',
+  tilt: 'Tilted 3D look',
+  show_page_buttons: 'Profile and page buttons',
+  press_effect: 'Press effect',
+  show_pad_presses: 'Show presses made on the pad',
+  show_turn_on: 'Offer to turn Mini Monitor on',
+  scale: 'Picture scale (empty: automatic)',
+};
+const HELPERS = {
+  title: "Shown above the keys instead of the pad's name.",
+  controls: 'A key number as the app counts them (3), several for a group (1, 2, 6-7), or names such as band_1, button_2 or top_knob.',
+  show_card_background: 'Off: no frame round the card, and the pad uses all the room.',
+  tilt: 'The pad leans back as if lying on a desk. Keys still press.',
+  show_page_buttons: 'Buttons under the pad to change its profile and page.',
+  press_effect: 'The key sinks and lights up where you tap it.',
+  show_pad_presses: 'A ring flashes round a key pressed on the real pad, on a pad on screen or by an automation.',
+  show_turn_on: 'A button to turn it on when it is off. It needs permission to change the Mini Monitor switch.',
+  scale: 'Leave empty to match the screen. 1 is sharpest on small cards, 3 on big high-DPI screens.',
+};
+
+/** An editor section that opens in place. */
+function section(title, icon, schema, expanded = false) {
+  return { type: 'expandable', name: '', flatten: true, title, icon, schema, ...(expanded ? { expanded: true } : {}) };
+}
+
+const DEVICE_FIELD = {
+  name: 'device_id',
+  required: true,
+  selector: {
+    device: {
+      filter: [{ integration: 'stream_dock_ha' }],
+      entity: [{ domain: 'select', integration: 'stream_dock_ha' }],
+    },
+  },
+};
 
 const Base = typeof HTMLElement !== 'undefined' ? HTMLElement : class {};
 
@@ -627,6 +835,19 @@ export class StreamDockCard extends Base {
             { name: 'show_card_background', selector: { boolean: {} } },
             { name: 'show_name', selector: { boolean: {} } },
             { name: 'show_profile', selector: { boolean: {} } },
+            { name: 'tilt', selector: { boolean: {} } },
+          ],
+        },
+        {
+          type: 'expandable',
+          name: '',
+          flatten: true,
+          title: 'Extras',
+          icon: 'mdi:gesture-tap-button',
+          schema: [
+            { name: 'show_page_buttons', selector: { boolean: {} } },
+            { name: 'press_effect', selector: { boolean: {} } },
+            { name: 'show_pad_presses', selector: { boolean: {} } },
           ],
         },
         {
@@ -640,19 +861,8 @@ export class StreamDockCard extends Base {
           ],
         },
       ],
-      computeLabel: (s) => ({
-        device_id: 'Pad',
-        title: 'Card title (optional)',
-        show_card_background: 'Show card background',
-        show_name: 'Show the title',
-        show_profile: 'Show the profile and page',
-        scale: 'Picture scale (empty: automatic)',
-      })[s.name],
-      computeHelper: (s) => ({
-        title: "Shown above the keys instead of the pad's name.",
-        show_card_background: 'Off: no frame round the card, and the pad uses all the room.',
-        scale: 'Leave empty to match the screen. 1 is sharpest on small cards, 3 on big high-DPI screens.',
-      })[s.name],
+      computeLabel: (s) => LABELS[s.name],
+      computeHelper: (s) => HELPERS[s.name],
     };
   }
 
@@ -668,21 +878,34 @@ export class StreamDockCard extends Base {
     };
   }
 
+  /** The pad's Layout as this card draws it: all of it, here. */
+  _laidOut(layout, body) {
+    return laidOut(layout, body);
+  }
+
+  static normalise(config) {
+    return normaliseConfig(config);
+  }
+
   setConfig(config) {
-    const next = normaliseConfig(config);
+    const next = this.constructor.normalise(config);
     const prev = this._config;
     this._config = next;
     if (prev && (prev.device_id !== next.device_id || prev.pad_id !== next.pad_id)) {
       this._device = null;
       this._cancelRetry(true);
     }
+    // What the card shows of the pad can change with its settings.
+    if (this._built && this._pad && this._pad.layout) this._layoutChanged(this._laidOut(this._pad.layout, this._pad.body));
     if (this._built) this._renderChrome();
     this._sync();
+    this._onEntities();
   }
 
   set hass(hass) {
     this._hass = hass;
     this._sync();
+    this._onEntities();
   }
 
   get hass() {
@@ -762,6 +985,18 @@ export class StreamDockCard extends Base {
             <div class="pad"></div>
             <div class="overlay" hidden><div class="note"><span class="title"></span><span class="sub"></span></div></div>
           </div>
+          <div class="bar" hidden>
+            <div class="group profile">
+              <button class="prev-profile" title="Previous profile" aria-label="Previous profile">‹</button>
+              <select class="profiles" aria-label="Profile"></select>
+              <button class="next-profile" title="Next profile" aria-label="Next profile">›</button>
+            </div>
+            <div class="group pages">
+              <button class="prev-page" title="Previous page" aria-label="Previous page">‹</button>
+              <span class="page"></span>
+              <button class="next-page" title="Next page" aria-label="Next page">›</button>
+            </div>
+          </div>
           <div class="toast" role="status" aria-live="polite"></div>
         </div>
       </ha-card>`;
@@ -775,6 +1010,9 @@ export class StreamDockCard extends Base {
     this._padEl = root.querySelector('.pad');
     this._overlayEl = root.querySelector('.overlay');
     this._toastEl = root.querySelector('.toast');
+    this._barEl = root.querySelector('.bar');
+    this._barEl.addEventListener('click', (e) => this._onBarClick(e));
+    this._barEl.querySelector('.profiles').addEventListener('change', (e) => this._chooseProfile(e.target.value));
 
     const pad = this._padEl;
     pad.addEventListener('pointerdown', (e) => this._onPointerDown(e));
@@ -982,7 +1220,7 @@ export class StreamDockCard extends Base {
 
   _cachedLayout() {
     const cached = this._padId && layoutCache.get(this._padId);
-    return cached ? laidOut(cached.layout, cached.body) : null;
+    return cached ? this._laidOut(cached.layout, cached.body) : null;
   }
 
   /* ---------- Scale ---------- */
@@ -1043,12 +1281,15 @@ export class StreamDockCard extends Base {
     } catch (_err) {
       return;
     }
-    // Shown once decoded, so the keys never flash empty between pictures.
+    // Shown once decoded, so the keys never flash empty between pictures. A
+    // picture decoded after a newer one is dropped, but a slow decode isn't
+    // dropped just because the next picture came in meanwhile.
     const serial = (this._frameSerial = (this._frameSerial || 0) + 1);
     const img = new Image();
     img.src = url;
     const show = () => {
-      if (serial !== this._frameSerial || !this._built) { URL.revokeObjectURL(url); return; }
+      if (serial <= (this._frameShown || 0) || !this._built) { URL.revokeObjectURL(url); return; }
+      this._frameShown = serial;
       const old = this._frameUrl;
       this._frameUrl = url;
       this._frame.style.setProperty('--mm', `url("${url}")`);
@@ -1100,6 +1341,7 @@ export class StreamDockCard extends Base {
   _clearFrame() {
     clearTimeout(this._frameTimer);
     this._frameSerial = (this._frameSerial || 0) + 1;
+    this._frameShown = this._frameSerial; // pictures still decoding stay off
     const had = !!this._frameUrl;
     if (this._frameUrl) URL.revokeObjectURL(this._frameUrl);
     this._frameUrl = null;
@@ -1118,21 +1360,37 @@ export class StreamDockCard extends Base {
     this._message = null;
     if (pad && pad.layout) {
       layoutCache.set(this._padId, { layout: pad.layout, body: pad.body });
-      const computed = laidOut(pad.layout, pad.body);
-      if (!this._layout || this._layout.version !== computed.version) {
-        this._buildControls(computed);
-        // The real layout can change the key size: check the scale.
-        if (this._config.scale == null && this._watch) {
-          const scale = this._measureScale();
-          if (scale && scale !== this._watch.scale) this._sync();
-        }
-      } else {
-        // The front's colour or the keys' corners can change on their own.
-        this._applyBody(computed.look);
-      }
+      this._layoutChanged(this._laidOut(pad.layout, pad.body));
     }
     if (!pad || pad.mini_monitor !== true) this._clearFrame();
     this._renderChrome();
+  }
+
+  /** Draws a new layout if it differs from the one drawn; null: nothing of it to show. */
+  _layoutChanged(computed) {
+    if (!computed) {
+      this._layout = null;
+      this._els.clear();
+      if (this._built) this._padEl.textContent = '';
+      this._message = { text: this._nothingToShow(), error: true, missing: true };
+      return;
+    }
+    if (this._message && this._message.missing) this._message = null;
+    if (!this._layout || this._layout.version !== computed.version) {
+      this._buildControls(computed);
+      // The real layout can change the key size: check the scale.
+      if (this._config.scale == null && this._watch) {
+        const scale = this._measureScale();
+        if (scale && scale !== this._watch.scale) this._sync();
+      }
+    } else {
+      // The front's colour or the keys' corners can change on their own.
+      this._applyBody(computed.look);
+    }
+  }
+
+  _nothingToShow() {
+    return 'This pad has nothing to show.';
   }
 
   _onPictures(event) {
@@ -1217,6 +1475,7 @@ export class StreamDockCard extends Base {
     pad.classList.toggle('painted', !!look.front);
     pad.classList.toggle('clear', look.clear);
     pad.classList.toggle('light', look.light);
+    pad.classList.toggle('bare', !!look.bare);
     if (look.front) style.setProperty('--front', look.front);
     else style.removeProperty('--front');
     style.setProperty('--pad-r', String(look.corner));
@@ -1256,6 +1515,9 @@ export class StreamDockCard extends Base {
     const pad = this._pad;
 
     this._card.classList.toggle('plain', cfg.show_card_background === false);
+    this._frame.classList.toggle('tilted', cfg.tilt === true);
+    this._padEl.classList.toggle('fx', cfg.press_effect !== false);
+    this._renderBar();
 
     // Header: the card's own title, or the pad's name.
     const name = cfg.title || (pad && pad.name) || '';
@@ -1282,7 +1544,7 @@ export class StreamDockCard extends Base {
     this._frame.hidden = !hasLayout;
 
     // Overlay
-    const overlay = padOverlay({ online: this._online, linkDown: this._linkDown, pad, frames: !!this._frameUrl });
+    const overlay = this._overlayFor({ online: this._online, linkDown: this._linkDown, pad, frames: !!this._frameUrl });
     this._overlay = overlay;
     this._padEl.classList.toggle('dim', !!(overlay && overlay.dim));
     if (overlay) {
@@ -1293,6 +1555,11 @@ export class StreamDockCard extends Base {
     } else {
       this._overlayEl.hidden = true;
     }
+  }
+
+  /** What covers the pad now (padOverlay); the screen card leaves some out. */
+  _overlayFor(state) {
+    return padOverlay(state);
   }
 
   _showMessage(text, error = false) {
@@ -1318,6 +1585,7 @@ export class StreamDockCard extends Base {
     this._releaseDown();
     this._down = { pointerId: e.pointerId, el, control: el.dataset.control, at: Date.now() };
     this._showDown(el, true);
+    this._ripple(el, e);
   }
 
   _onPointerUp(e) {
@@ -1335,6 +1603,7 @@ export class StreamDockCard extends Base {
     e.preventDefault();
     if (e.repeat) return;
     this._showDown(el, true);
+    this._ripple(el, null);
     setTimeout(() => this._showDown(el, false), MIN_PRESS_MS + 40);
     this._press(el.dataset.control);
   }
@@ -1361,6 +1630,7 @@ export class StreamDockCard extends Base {
 
   async _press(control) {
     if (!control || !this._hass || !this._padId) return;
+    this._pressedHere = { control, at: Date.now() };
     const entry = this._els.get(control);
     if (entry && entry.item) {
       const press = entry.item.kind === 'knob'
@@ -1376,6 +1646,147 @@ export class StreamDockCard extends Base {
       await this._hass.callWS({ type: 'stream_dock_ha/press', pad_id: this._padId, control });
     } catch (err) {
       this._toast(pressErrorText(err));
+    }
+  }
+
+  /** A soft light spreading from where the key was hit. */
+  _ripple(el, e) {
+    if (!this._config || this._config.press_effect === false) return;
+    if (!el.classList.contains('key') && !el.classList.contains('band')) return;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    const r = el.getBoundingClientRect();
+    if (e && r.width > 0 && r.height > 0 && (e.clientX || e.clientY)) {
+      const at = (v) => `${Math.min(100, Math.max(0, v * 100))}%`;
+      ripple.style.setProperty('--rx', at((e.clientX - r.left) / r.width));
+      ripple.style.setProperty('--ry', at((e.clientY - r.top) / r.height));
+    }
+    el.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 500);
+  }
+
+  /* ---------- The pad's entities: presses made elsewhere, profile and page ---------- */
+
+  _onEntities() {
+    const hass = this._hass;
+    const cfg = this._config;
+    if (!hass || !cfg) return;
+    if (this._entitiesFor !== hass.entities || this._entitiesDevice !== cfg.device_id) {
+      this._entities = padEntities(hass, cfg.device_id);
+      this._entitiesFor = hass.entities;
+      this._entitiesDevice = cfg.device_id;
+      this._pressStamp = undefined;
+    }
+    const found = this._entities;
+    const states = hass.states || {};
+    const press = found.press ? states[found.press] : null;
+    const stamp = press ? String(press.state) : null;
+    if (stamp !== this._pressStamp) {
+      const first = this._pressStamp === undefined;
+      this._pressStamp = stamp;
+      const pressed = !first && cfg.show_pad_presses !== false ? pressedControl(press) : null;
+      if (pressed) this._light(pressed.control);
+    }
+    const look = (id) => {
+      const st = id && states[id];
+      return st ? `${st.state}|${JSON.stringify(st.attributes && st.attributes.options)}|${st.attributes && st.attributes.max}` : '';
+    };
+    const key = `${cfg.show_page_buttons}|${look(found.profile)}|${look(found.page)}|${look(found.mini_monitor)}`;
+    if (key !== this._entitiesKey) {
+      this._entitiesKey = key;
+      this._renderChrome();
+    }
+  }
+
+  /** A ring round a control pressed somewhere else than this card. */
+  _light(control) {
+    const here = this._pressedHere;
+    if (here && here.control === control && Date.now() - here.at < 2500) return;
+    const entry = this._els.get(control);
+    if (!entry) return;
+    const el = entry.knob || entry.el;
+    el.classList.remove('lit');
+    void el.offsetWidth; // starts the ring again
+    el.classList.add('lit');
+    if (entry.knob) {
+      this._showDown(entry.el, true);
+      setTimeout(() => this._showDown(entry.el, false), 260);
+    }
+    clearTimeout(el._litTimer);
+    el._litTimer = setTimeout(() => el.classList.remove('lit'), 950);
+  }
+
+  _renderBar() {
+    const bar = this._barEl;
+    if (!bar) return;
+    const cfg = this._config;
+    const hass = this._hass;
+    const found = this._entities || {};
+    const states = (hass && hass.states) || {};
+    const profile = cfg && cfg.show_page_buttons && found.profile ? states[found.profile] : null;
+    const page = cfg && cfg.show_page_buttons && found.page ? states[found.page] : null;
+    bar.hidden = !(profile || page) || !this._layout;
+    if (bar.hidden) return;
+    const off = (st) => !st || st.state === 'unavailable' || st.state === 'unknown';
+
+    const profileGroup = bar.querySelector('.group.profile');
+    profileGroup.hidden = !profile;
+    if (profile) {
+      const select = profileGroup.querySelector('select');
+      const options = Array.isArray(profile.attributes.options) ? profile.attributes.options.map(String) : [];
+      const now = [...select.options].map((o) => o.value);
+      if (now.join('\n') !== options.join('\n')) {
+        select.textContent = '';
+        for (const name of options) {
+          const option = document.createElement('option');
+          option.value = name;
+          option.textContent = name;
+          select.appendChild(option);
+        }
+      }
+      select.value = profile.state;
+      select.disabled = off(profile);
+      for (const b of profileGroup.querySelectorAll('button')) b.disabled = off(profile) || options.length < 2;
+    }
+
+    const pageGroup = bar.querySelector('.group.pages');
+    pageGroup.hidden = !page;
+    if (page) {
+      const n = Math.round(num(page.state, 0));
+      const max = Math.round(num(page.attributes.max, 1));
+      pageGroup.querySelector('.page').textContent = off(page) ? '–' : `${n} / ${max}`;
+      pageGroup.querySelector('.prev-page').disabled = off(page) || n <= 1;
+      pageGroup.querySelector('.next-page').disabled = off(page) || n >= max;
+    }
+  }
+
+  _onBarClick(e) {
+    const button = e.target.closest && e.target.closest('button');
+    if (!button || button.disabled) return;
+    const found = this._entities || {};
+    const states = (this._hass && this._hass.states) || {};
+    if (button.classList.contains('prev-profile') || button.classList.contains('next-profile')) {
+      const service = button.classList.contains('prev-profile') ? 'select_previous' : 'select_next';
+      this._call('select', service, { entity_id: found.profile, cycle: true });
+    } else if (button.classList.contains('prev-page') || button.classList.contains('next-page')) {
+      const st = states[found.page];
+      if (!st) return;
+      const by = button.classList.contains('prev-page') ? -1 : 1;
+      this._call('number', 'set_value', { entity_id: found.page, value: Math.round(num(st.state, 1)) + by });
+    }
+  }
+
+  _chooseProfile(option) {
+    const found = this._entities || {};
+    if (found.profile && option) this._call('select', 'select_option', { entity_id: found.profile, option });
+  }
+
+  async _call(domain, service, data) {
+    if (!this._hass || !data.entity_id) return;
+    try {
+      await this._hass.callService(domain, service, data);
+    } catch (err) {
+      this._toast((err && err.message) || `Couldn't ${service.replace(/_/g, ' ')}`);
     }
   }
 
@@ -1398,23 +1809,232 @@ function safeUnsub(unsub) {
 }
 
 /* ------------------------------------------------------------------ */
+/* One key, or a few: custom:stream-dock-key-card                       */
+/* ------------------------------------------------------------------ */
+
+/** A one-key card's config: which controls, and no header unless asked for. */
+export function normaliseKeyConfig(config) {
+  if (!config || typeof config !== 'object') throw new Error('Invalid configuration');
+  const out = normaliseConfig({ show_name: false, show_profile: false, ...config });
+  out.focus = parseControls(out.controls);
+  out.show_pad_body = out.show_pad_body === true;
+  out.show_page_buttons = false;
+  out.tilt = false;
+  return out;
+}
+
+export class StreamDockKeyCard extends StreamDockCard {
+  static normalise(config) {
+    return normaliseKeyConfig(config);
+  }
+
+  static getConfigForm() {
+    return {
+      schema: [
+        section('Key', 'mdi:gesture-tap-button', [DEVICE_FIELD, { name: 'controls', required: true, selector: { text: {} } }, { name: 'title', selector: { text: {} } }], true),
+        section('Appearance', 'mdi:palette-outline', [
+          { name: 'show_card_background', selector: { boolean: {} } },
+          { name: 'show_pad_body', selector: { boolean: {} } },
+          { name: 'show_name', selector: { boolean: {} } },
+        ]),
+        section('Extras', 'mdi:creation-outline', [
+          { name: 'press_effect', selector: { boolean: {} } },
+          { name: 'show_pad_presses', selector: { boolean: {} } },
+        ]),
+        section('Pictures', 'mdi:image-outline', [
+          { name: 'scale', selector: { number: { min: 1, max: 3, step: 1, mode: 'box' } } },
+        ]),
+      ],
+      computeLabel: (s) => LABELS[s.name],
+      computeHelper: (s) => HELPERS[s.name],
+    };
+  }
+
+  static getStubConfig(hass) {
+    return { device_id: StreamDockCard.getStubConfig(hass).device_id, controls: '1', show_card_background: true };
+  }
+
+  getCardSize() {
+    const layout = this._layout;
+    const header = this._config && this._config.show_name ? 1 : 0;
+    return Math.max(1, Math.ceil(layout ? (150 * layout.height) / layout.width / 50 : 3) + header);
+  }
+
+  getGridOptions() {
+    return { columns: 3, min_columns: 2, rows: 'auto', min_rows: 1 };
+  }
+
+  /** Only the chosen controls; without the pad round them, unless asked for. */
+  _laidOut(layout, body) {
+    const focused = focusLayout(layout, this._config ? this._config.focus : []);
+    if (!focused) return null;
+    const bare = !(this._config && this._config.show_pad_body);
+    // A sliver of room so a key's shadow and ring aren't cut off.
+    const computed = laidOut(focused, bare ? { ...(body || {}), front: null, edge: 0.06 } : body);
+    if (bare) computed.look.bare = true;
+    return computed;
+  }
+
+  _nothingToShow() {
+    const asked = this._config && this._config.focus.length ? this._config.focus.map(humanizeControl).join(', ') : '';
+    return asked ? `This pad has no ${asked}.` : 'Choose which key to show in the card settings.';
+  }
+
+  /** Each key shows its own part of Mini Monitor: one picture across a few keys would be squeezed. */
+  _onFrame(event) {
+    super._onFrame({ ...event, seamless: false });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Mini Monitor as one screen: custom:stream-dock-screen-card           */
+/* ------------------------------------------------------------------ */
+
+export function normaliseScreenConfig(config) {
+  if (!config || typeof config !== 'object') throw new Error('Invalid configuration');
+  const out = normaliseConfig({ show_profile: false, ...config });
+  out.show_turn_on = out.show_turn_on !== false;
+  out.show_page_buttons = false;
+  out.tilt = false;
+  out.show_pad_presses = false;
+  return out;
+}
+
+/** The screen card's words for where Mini Monitor is: null once its picture shows. */
+export function screenNote({ pad = null, frames = false, canTurnOn = false } = {}) {
+  if (frames || !pad) return null;
+  if (pad.mini_monitor === null || pad.mini_monitor === undefined) {
+    return { text: "This pad can't show Mini Monitor.", button: false };
+  }
+  if (pad.mini_monitor !== true) return { text: 'Mini Monitor is off.', button: canTurnOn };
+  return { text: 'Waiting for the screen…', button: false };
+}
+
+export class StreamDockScreenCard extends StreamDockCard {
+  static normalise(config) {
+    return normaliseScreenConfig(config);
+  }
+
+  static getConfigForm() {
+    return {
+      schema: [
+        section('Pad', 'mdi:monitor-screenshot', [DEVICE_FIELD, { name: 'title', selector: { text: {} } }], true),
+        section('Appearance', 'mdi:palette-outline', [
+          { name: 'show_card_background', selector: { boolean: {} } },
+          { name: 'show_name', selector: { boolean: {} } },
+          { name: 'show_turn_on', selector: { boolean: {} } },
+        ]),
+      ],
+      computeLabel: (s) => LABELS[s.name],
+      computeHelper: (s) => HELPERS[s.name],
+    };
+  }
+
+  static getStubConfig(hass) {
+    return { device_id: StreamDockCard.getStubConfig(hass).device_id, show_card_background: true, show_name: true };
+  }
+
+  getCardSize() {
+    return 5 + (this._config && this._config.show_name ? 1 : 0);
+  }
+
+  getGridOptions() {
+    return { columns: 12, min_columns: 4, rows: 'auto', min_rows: 2 };
+  }
+
+  /** Key pictures aren't shown here: ask for the smallest. */
+  _desiredScale() {
+    return 1;
+  }
+
+  _laidOut(_layout, body) {
+    const look = { ...bodyLook({ ...(body || {}), front: null }), bare: true };
+    return { version: 'screen', width: 16, height: 9, items: [], strip: null, look };
+  }
+
+  _buildControls(layout) {
+    this._layout = layout;
+    if (!this._built) return;
+    this._els.clear();
+    if (!this._padEl.querySelector('.screen')) {
+      this._padEl.innerHTML = `
+        <div class="screen"><div class="shot"></div>
+          <div class="screen-off" hidden><span class="what"></span><button type="button" hidden>Turn on Mini Monitor</button></div>
+        </div>`;
+      this._padEl.querySelector('.screen-off button').addEventListener('click', () => this._turnOn());
+    }
+    if (!this._screenSize) {
+      this._frame.style.setProperty('--bw', '16');
+      this._frame.style.setProperty('--bh', '9');
+    }
+    this._applyBody(layout.look);
+  }
+
+  /** The card takes the screen's own shape. */
+  _onFrame(event) {
+    const W = num(event && event.width);
+    const H = num(event && event.height);
+    if (W > 0 && H > 0 && this._screenSize !== `${W}x${H}`) {
+      this._screenSize = `${W}x${H}`;
+      this._frame.style.setProperty('--bw', String(W));
+      this._frame.style.setProperty('--bh', String(H));
+    }
+    super._onFrame({ ...event, seamless: false });
+  }
+
+  _placeFrameParts() {}
+
+  _overlayFor(state) {
+    const overlay = padOverlay(state);
+    return overlay && (overlay.kind === 'mini_monitor' || overlay.kind === 'screen_off' || overlay.kind === 'unplugged') ? null : overlay;
+  }
+
+  _renderChrome() {
+    super._renderChrome();
+    const off = this._built && this._padEl.querySelector('.screen-off');
+    if (!off) return;
+    const found = this._entities || {};
+    const note = screenNote({
+      pad: this._pad,
+      frames: !!this._frameUrl,
+      canTurnOn: this._config.show_turn_on !== false && !!found.mini_monitor && this._online,
+    });
+    off.hidden = !note;
+    if (note) {
+      off.querySelector('.what').textContent = note.text;
+      off.querySelector('button').hidden = !note.button;
+    }
+  }
+
+  _turnOn() {
+    const found = this._entities || {};
+    if (found.mini_monitor) this._call('switch', 'turn_on', { entity_id: found.mini_monitor });
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Registration                                                         */
 /* ------------------------------------------------------------------ */
 
-if (typeof customElements !== 'undefined' && !customElements.get(CARD_TYPE)) {
-  customElements.define(CARD_TYPE, StreamDockCard);
+const CARDS = [
+  [CARD_TYPE, StreamDockCard, 'Stream Dock pad', 'A live Stream Dock pad: see its keys and press them from the dashboard.'],
+  [KEY_CARD_TYPE, StreamDockKeyCard, 'Stream Dock key', 'One key of a Stream Dock pad, or a few, live and pressable.'],
+  [SCREEN_CARD_TYPE, StreamDockScreenCard, 'Stream Dock Mini Monitor', "A pad's Mini Monitor as one screen, in its own shape."],
+];
+
+if (typeof customElements !== 'undefined') {
+  for (const [type, element] of CARDS) {
+    if (!customElements.get(type)) customElements.define(type, element);
+  }
   // eslint-disable-next-line no-console
   console.info(`%c STREAM-DOCK-CARD %c ${CARD_VERSION} `, 'background:#222;color:#fff', 'background:#ffa600;color:#000');
 }
 
 if (typeof window !== 'undefined') {
   window.customCards = window.customCards || [];
-  if (!window.customCards.some((c) => c && c.type === CARD_TYPE)) {
-    window.customCards.push({
-      type: CARD_TYPE,
-      name: 'Stream Dock pad',
-      description: 'A live Stream Dock pad: see its keys and press them from the dashboard.',
-      preview: false,
-    });
+  for (const [type, , name, description] of CARDS) {
+    if (!window.customCards.some((c) => c && c.type === type)) {
+      window.customCards.push({ type, name, description, preview: false });
+    }
   }
 }

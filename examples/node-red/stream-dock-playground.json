@@ -1,0 +1,818 @@
+[
+  {
+    "id": "0405732ac65087cb",
+    "type": "tab",
+    "label": "Stream Dock playground",
+    "disabled": false,
+    "info": "Try show_on_key on a Stream Dock pad by hand. Needs Stream Dock HA 1.1.0 or later with integration 0.1.8.",
+    "env": [
+      {
+        "name": "PAD",
+        "value": "1c4caec6b47770e1f1091292830b25f7",
+        "type": "str"
+      }
+    ]
+  },
+  {
+    "type": "comment",
+    "name": "Stream Dock: something on one key",
+    "info": "Press the button on the left of an inject node to try it.\n\nThe pad is the tab's PAD setting (double-click the tab, Environment variables). It's the Stream Dock 293S now; the AKP03E is 1517fe74e923118ab4d66d5726fa21b8.\n\nshow_on_key fields: key (3, \"3\" or \"key_3\"), title, message, icon (mdi:...), color [r,g,b], seconds (default 30, 0 = until pressed), camera (camera.*), picture (image.*, /local/..., an http(s) address or a data: address), fit (fill, fit, stretch).\n\nPressing a key that shows something takes it away and does nothing else.",
+    "x": 200,
+    "y": 40,
+    "wires": [],
+    "id": "44c5bd0ca34da836",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Hello on key 3",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"key\": 3, \"title\": \"Hello\", \"message\": \"from Node-RED\", \"icon\": \"mdi:hand-wave\"}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 560,
+    "y": 100,
+    "wires": [
+      []
+    ],
+    "id": "0f6185fbaa4c357b",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Hello on key 3 (30 s)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 100,
+    "wires": [
+      [
+        "0f6185fbaa4c357b"
+      ]
+    ],
+    "id": "ceae71be0c67d157",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Green tick on key 1",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"key\": 1, \"title\": \"Done\", \"icon\": \"mdi:check-bold\", \"color\": [46, 160, 67], \"seconds\": 10}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 560,
+    "y": 160,
+    "wires": [
+      []
+    ],
+    "id": "0b8005cd2d0b5bce",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Green tick on key 1 (10 s)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 160,
+    "wires": [
+      [
+        "0b8005cd2d0b5bce"
+      ]
+    ],
+    "id": "cfcc6a53428174f1",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Until pressed",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"key\": 5, \"title\": \"Press me\", \"message\": \"I stay until you do\", \"icon\": \"mdi:gesture-tap\", \"color\": [220, 50, 47], \"seconds\": 0}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 560,
+    "y": 220,
+    "wires": [
+      []
+    ],
+    "id": "e130b9060abe22fb",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Until pressed: key 5",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 220,
+    "wires": [
+      [
+        "e130b9060abe22fb"
+      ]
+    ],
+    "id": "a01b717b517b3b51",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Camera on key 2",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"key\": 2, \"camera\": \"camera.computer_cubelite_top_matrix_preview_square\", \"title\": \"Cube\", \"seconds\": 20}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 560,
+    "y": 280,
+    "wires": [
+      []
+    ],
+    "id": "d67665f869875822",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Camera on key 2 (20 s)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 280,
+    "wires": [
+      [
+        "d67665f869875822"
+      ]
+    ],
+    "id": "789b248cc6a1f75a",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Picture from the web on key 4",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"key\": 4, \"picture\": \"https://www.home-assistant.io/images/favicon-192x192-full.png\", \"fit\": \"fit\", \"color\": [255, 255, 255], \"seconds\": 20}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 560,
+    "y": 340,
+    "wires": [
+      []
+    ],
+    "id": "69c253eb3ab7745b",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Picture from the web on key 4",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 340,
+    "wires": [
+      [
+        "69c253eb3ab7745b"
+      ]
+    ],
+    "id": "e530546c143dc431",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Just an icon on key 11",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"key\": 11, \"icon\": \"mdi:washing-machine\", \"color\": [33, 150, 243], \"seconds\": 15}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 560,
+    "y": 400,
+    "wires": [
+      []
+    ],
+    "id": "4fa620afa05f9137",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Just an icon on key 11",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 400,
+    "wires": [
+      [
+        "4fa620afa05f9137"
+      ]
+    ],
+    "id": "61e1b9169670c3ca",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Show the weather",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "payload",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 820,
+    "y": 460,
+    "wires": [
+      []
+    ],
+    "id": "504d0eb6310931d4",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "function",
+    "name": "Weather to a key",
+    "func": "const w = msg.data || {};\nconst a = w.attributes || {};\nconst icons = {\n  'clear-night': 'mdi:weather-night', 'cloudy': 'mdi:weather-cloudy', 'fog': 'mdi:weather-fog',\n  'hail': 'mdi:weather-hail', 'lightning': 'mdi:weather-lightning', 'lightning-rainy': 'mdi:weather-lightning-rainy',\n  'partlycloudy': 'mdi:weather-partly-cloudy', 'pouring': 'mdi:weather-pouring', 'rainy': 'mdi:weather-rainy',\n  'snowy': 'mdi:weather-snowy', 'sunny': 'mdi:weather-sunny', 'windy': 'mdi:weather-windy',\n};\nmsg.payload = {\n  device_id: env.get('PAD'),\n  key: 6,\n  title: a.temperature != null ? `${Math.round(a.temperature)}${a.temperature_unit || '°'}` : 'Weather',\n  message: String(w.state || '').replace(/-/g, ' '),\n  icon: icons[w.state] || 'mdi:weather-cloudy',\n  color: [70, 110, 160],\n  seconds: 30,\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 610,
+    "y": 460,
+    "wires": [
+      [
+        "504d0eb6310931d4"
+      ]
+    ],
+    "id": "70357372596478ca",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-current-state",
+    "name": "Weather now",
+    "server": "ae3dece5.864be",
+    "version": 3,
+    "outputs": 1,
+    "halt_if": "",
+    "halt_if_type": "str",
+    "halt_if_compare": "is",
+    "entity_id": "weather.forecast_home",
+    "state_type": "str",
+    "blockInputOverrides": true,
+    "outputProperties": [
+      {
+        "property": "data",
+        "propertyType": "msg",
+        "value": "",
+        "valueType": "entity"
+      }
+    ],
+    "for": "0",
+    "forType": "num",
+    "forUnits": "minutes",
+    "override_topic": false,
+    "state_location": "payload",
+    "override_payload": "msg",
+    "entity_location": "data",
+    "override_data": "msg",
+    "x": 420,
+    "y": 460,
+    "wires": [
+      [
+        "70357372596478ca"
+      ]
+    ],
+    "id": "ea116d28478db274",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Weather on key 6",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 200,
+    "y": 460,
+    "wires": [
+      [
+        "ea116d28478db274"
+      ]
+    ],
+    "id": "396bda77b4a1a624",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Count",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "payload",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 820,
+    "y": 520,
+    "wires": [
+      []
+    ],
+    "id": "470e4b2284bb8e04",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "function",
+    "name": "10 to 0, one a second",
+    "func": "const pad = env.get('PAD');\nfor (let n = 10; n >= 0; n--) {\n  setTimeout(() => {\n    node.send({ payload: n > 0\n      ? { device_id: pad, key: 10, title: String(n), message: 'seconds', icon: 'mdi:timer-sand', color: [120, 70, 200], seconds: 2 }\n      : { device_id: pad, key: 10, title: 'Go!', icon: 'mdi:rocket-launch', color: [46, 160, 67], seconds: 8 } });\n  }, (10 - n) * 1000);\n}\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 520,
+    "wires": [
+      [
+        "470e4b2284bb8e04"
+      ]
+    ],
+    "id": "aab4b439c5ee7e49",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Countdown on key 10",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 210,
+    "y": 520,
+    "wires": [
+      [
+        "aab4b439c5ee7e49"
+      ]
+    ],
+    "id": "7006aa7e4d1aef8a",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Wave",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "payload",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 820,
+    "y": 580,
+    "wires": [
+      []
+    ],
+    "id": "68c97fa846de5a28",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "function",
+    "name": "Colours across the keys",
+    "func": "const pad = env.get('PAD');\nconst hsv = (h) => {\n  const f = (n) => { const k = (n + h / 60) % 6; return Math.round(255 * (1 - Math.max(0, Math.min(k, 4 - k, 1)))); };\n  return [f(5), f(3), f(1)];\n};\nfor (let i = 0; i < 15; i++) {\n  setTimeout(() => node.send({ payload: { device_id: pad, key: i + 1, title: ' ', color: hsv(i * 24), icon: 'mdi:circle-small', seconds: 3 } }), i * 120);\n}\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 580,
+    "wires": [
+      [
+        "68c97fa846de5a28"
+      ]
+    ],
+    "id": "5e7d70a24ac2423e",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Rainbow wave",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 190,
+    "y": 580,
+    "wires": [
+      [
+        "5e7d70a24ac2423e"
+      ]
+    ],
+    "id": "72f50822ce215b73",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Clear all",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.clear_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\")}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "clear_on_key",
+    "x": 560,
+    "y": 640,
+    "wires": [
+      []
+    ],
+    "id": "582670acd4b5ccea",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Clear every key",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 200,
+    "y": 640,
+    "wires": [
+      [
+        "582670acd4b5ccea"
+      ]
+    ],
+    "id": "2584d6e5d3015b02",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Whole pad",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_alert",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "{\"device_id\": $env(\"PAD\"), \"title\": \"Doorbell\", \"message\": \"Someone is at the door\", \"icon\": \"mdi:doorbell\", \"seconds\": 15}",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_alert",
+    "x": 560,
+    "y": 700,
+    "wires": [
+      []
+    ],
+    "id": "9ab58384b19e5f38",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "inject",
+    "name": "Compare: whole-pad alert",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 700,
+    "wires": [
+      [
+        "9ab58384b19e5f38"
+      ]
+    ],
+    "id": "7c6216e644e13682",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "comment",
+    "name": "When one of those keys is pressed",
+    "info": "Every press fires stream_dock_ha_event. Pressing a key that shows something takes it away, with dismissed: true and the key's control. Here it says thanks on that key for 3 s, and logs it in the debug tab.",
+    "x": 230,
+    "y": 800,
+    "wires": [],
+    "id": "a8e77e96aec80e95",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "api-call-service",
+    "name": "Say thanks",
+    "server": "ae3dece5.864be",
+    "version": 7,
+    "debugenabled": false,
+    "action": "stream_dock_ha.show_on_key",
+    "floorId": [],
+    "areaId": [],
+    "deviceId": [],
+    "entityId": [],
+    "labelId": [],
+    "data": "payload",
+    "dataType": "jsonata",
+    "mergeContext": "",
+    "mustacheAltTags": false,
+    "outputProperties": [],
+    "blockInputOverrides": true,
+    "domain": "stream_dock_ha",
+    "service": "show_on_key",
+    "x": 900,
+    "y": 850,
+    "wires": [
+      []
+    ],
+    "id": "2a07cf79ca4430f6",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "debug",
+    "name": "Dismissed",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.control",
+    "statusType": "msg",
+    "x": 880,
+    "y": 900,
+    "wires": [],
+    "id": "112c434a7e4ef656",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "function",
+    "name": "Thanks on that key",
+    "func": "const e = msg.payload || {};\nif (!e.dismissed || !e.control || !String(e.control).startsWith('key_')) return null;\nconst thanks = { payload: { device_id: env.get('PAD'), control: e.control, title: 'Thanks!', icon: 'mdi:emoticon-happy-outline', color: [46, 160, 67], seconds: 3 } };\nreturn [thanks, { payload: e }];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 850,
+    "wires": [
+      [
+        "2a07cf79ca4430f6"
+      ],
+      [
+        "112c434a7e4ef656"
+      ]
+    ],
+    "id": "a4bc32067a8d2cac",
+    "z": "0405732ac65087cb"
+  },
+  {
+    "type": "server-events",
+    "name": "Stream Dock presses",
+    "server": "ae3dece5.864be",
+    "version": 3,
+    "exposeAsEntityConfig": "",
+    "eventType": "stream_dock_ha_event",
+    "eventData": "",
+    "waitForRunning": true,
+    "outputProperties": [
+      {
+        "property": "payload",
+        "propertyType": "msg",
+        "value": "",
+        "valueType": "eventData"
+      },
+      {
+        "property": "topic",
+        "propertyType": "msg",
+        "value": "$outputData(\"eventData\").event_type",
+        "valueType": "jsonata"
+      }
+    ],
+    "x": 260,
+    "y": 850,
+    "wires": [
+      [
+        "a4bc32067a8d2cac"
+      ]
+    ],
+    "id": "3cdccdc0b096eb5a",
+    "z": "0405732ac65087cb"
+  }
+]
