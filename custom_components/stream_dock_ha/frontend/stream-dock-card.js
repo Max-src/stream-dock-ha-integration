@@ -13,7 +13,7 @@
 const CARD_TYPE = 'stream-dock-card';
 const KEY_CARD_TYPE = 'stream-dock-key-card';
 const SCREEN_CARD_TYPE = 'stream-dock-screen-card';
-const CARD_VERSION = '0.1.9';
+const CARD_VERSION = '0.1.10';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -403,12 +403,18 @@ export function parseControls(value) {
   return out;
 }
 
+/** The gap between controls a key card puts side by side, in key units, as on the 293S. */
+const ROW_GAP = 0.25;
+
 /**
- * A Layout with only the controls `names` asks for, moved so they start at
- * 0, 0 and sized to what they cover. A knob is asked for by its group
- * (top_knob) or any of its parts. Null when none of them is in the layout.
+ * A Layout with only the controls `names` asks for. A knob is asked for by its
+ * group (top_knob) or any of its parts. Null when none of them is in the layout.
+ *
+ * By default they're put side by side in the order asked for, `perRow` to a
+ * row (0: all in one), each centred in its row. With `asOnPad` they keep
+ * where they are on the pad, moved so they start at 0, 0.
  */
-export function focusLayout(layout, names) {
+export function focusLayout(layout, names, { asOnPad = false, perRow = 0 } = {}) {
   const wanted = new Set(names || []);
   const controls = (layout && Array.isArray(layout.controls) ? layout.controls : []).filter((c) => {
     if (!c || typeof c.name !== 'string') return false;
@@ -418,15 +424,57 @@ export function focusLayout(layout, names) {
     return wanted.has(group) || ['left', 'right', 'press'].some((part) => wanted.has(`${group}_${part}`));
   });
   if (!controls.length) return null;
-  const minX = Math.min(...controls.map((c) => num(c.x)));
-  const minY = Math.min(...controls.map((c) => num(c.y)));
-  const moved = controls.map((c) => ({ ...c, x: num(c.x) - minX, y: num(c.y) - minY }));
+  const moved = asOnPad ? placedAsOnPad(controls) : placedInRows(controls, [...wanted], perRow);
   return {
-    version: `${layout && layout.version != null ? layout.version : ''}:${[...wanted].join(',')}`,
+    version: `${layout && layout.version != null ? layout.version : ''}:${[...wanted].join(',')}:${asOnPad ? 'pad' : `row${perRow}`}`,
     width: Math.max(...moved.map((c) => c.x + (num(c.w, 1) > 0 ? num(c.w, 1) : 1))),
     height: Math.max(...moved.map((c) => c.y + (num(c.h, 1) > 0 ? num(c.h, 1) : 1))),
     controls: moved,
   };
+}
+
+function placedAsOnPad(controls) {
+  const minX = Math.min(...controls.map((c) => num(c.x)));
+  const minY = Math.min(...controls.map((c) => num(c.y)));
+  return controls.map((c) => ({ ...c, x: num(c.x) - minX, y: num(c.y) - minY }));
+}
+
+/** A knob's three parts move as one; everything else on its own. */
+function controlUnit(c) {
+  if (!KNOB_PARTS[c.type]) return c.name;
+  return typeof c.group === 'string' && c.group ? c.group : c.name.replace(/_(left|right|press)$/, '');
+}
+
+function placedInRows(controls, wanted, perRow) {
+  const units = new Map();
+  for (const c of controls) {
+    const unit = controlUnit(c);
+    if (!units.has(unit)) units.set(unit, []);
+    units.get(unit).push(c);
+  }
+  // The order asked for: a knob by the first of its group or parts named.
+  const rank = (unit) => {
+    const at = wanted.findIndex((name) => name === unit || name.startsWith(`${unit}_`));
+    return at < 0 ? wanted.length : at;
+  };
+  const ordered = [...units.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+  const size = (n, fallback) => (num(n, fallback) > 0 ? num(n, fallback) : fallback);
+  const across = Math.max(0, Math.floor(num(perRow))) || ordered.length;
+  const out = [];
+  let y = 0;
+  for (let start = 0; start < ordered.length; start += across) {
+    const row = ordered.slice(start, start + across).map(([, parts]) => ({
+      parts, w: size(parts[0].w, 1), h: size(parts[0].h, 1),
+    }));
+    const tall = Math.max(...row.map((u) => u.h));
+    let x = 0;
+    for (const u of row) {
+      for (const c of u.parts) out.push({ ...c, x, y: y + (tall - u.h) / 2 });
+      x += u.w + ROW_GAP;
+    }
+    y += tall + ROW_GAP;
+  }
+  return out;
 }
 
 /**
@@ -740,6 +788,8 @@ const LABELS = {
   controls: 'Keys',
   show_card_background: 'Show card background',
   show_pad_body: 'Show the pad round the keys',
+  keep_pad_layout: 'Keep the keys where they are on the pad',
+  per_row: 'Keys per row (empty: all in one row)',
   show_name: 'Show the title',
   show_profile: 'Show the profile and page',
   tilt: 'Tilted 3D look',
@@ -753,6 +803,8 @@ const LABELS = {
 const HELPERS = {
   title: "Shown above the keys instead of the pad's name.",
   controls: 'A key number as the app counts them (3), several for a group (1, 2, 6-7), or names such as band_1, button_2 or top_knob.',
+  keep_pad_layout: 'Off: the keys sit side by side in the order typed.',
+  per_row: 'Ignored while the keys keep their places on the pad.',
   show_card_background: 'Off: no frame round the card, and the pad uses all the room.',
   tilt: 'The pad leans back as if lying on a desk. Keys still press.',
   show_page_buttons: 'Buttons under the pad to change its profile and page.',
@@ -1851,6 +1903,9 @@ export function normaliseKeyConfig(config) {
   const out = normaliseConfig({ show_name: false, show_profile: false, ...config });
   out.focus = parseControls(out.controls);
   out.show_pad_body = out.show_pad_body === true;
+  out.keep_pad_layout = out.keep_pad_layout === true;
+  const perRow = Math.floor(Number(out.per_row));
+  out.per_row = Number.isFinite(perRow) && perRow > 0 ? Math.min(perRow, 64) : 0;
   out.show_page_buttons = false;
   out.tilt = false;
   return out;
@@ -1864,7 +1919,13 @@ export class StreamDockKeyCard extends StreamDockCard {
   static getConfigForm() {
     return {
       schema: [
-        section('Key', 'mdi:gesture-tap-button', [DEVICE_FIELD, { name: 'controls', required: true, selector: { text: {} } }, { name: 'title', selector: { text: {} } }], true),
+        section('Key', 'mdi:gesture-tap-button', [
+          DEVICE_FIELD,
+          { name: 'controls', required: true, selector: { text: {} } },
+          { name: 'keep_pad_layout', selector: { boolean: {} } },
+          { name: 'per_row', selector: { number: { min: 1, max: 20, step: 1, mode: 'box' } } },
+          { name: 'title', selector: { text: {} } },
+        ], true),
         section('Appearance', 'mdi:palette-outline', [
           { name: 'show_card_background', selector: { boolean: {} } },
           { name: 'show_pad_body', selector: { boolean: {} } },
@@ -1899,7 +1960,11 @@ export class StreamDockKeyCard extends StreamDockCard {
 
   /** Only the chosen controls; without the pad round them, unless asked for. */
   _laidOut(layout, body) {
-    const focused = focusLayout(layout, this._config ? this._config.focus : []);
+    const config = this._config || {};
+    const focused = focusLayout(layout, config.focus || [], {
+      asOnPad: config.keep_pad_layout === true,
+      perRow: config.keep_pad_layout ? 0 : config.per_row,
+    });
     if (!focused) return null;
     const bare = !(this._config && this._config.show_pad_body);
     // A sliver of room so a key's shadow and ring aren't cut off.

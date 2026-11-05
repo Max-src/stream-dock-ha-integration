@@ -473,7 +473,7 @@ test('focusLayout keeps only the chosen controls, moved to 0, 0', () => {
   const one = focusLayout(layout293s, ['key_7']);
   assert.equal(one.controls.length, 1);
   assert.deepEqual([one.controls[0].x, one.controls[0].y, one.width, one.height], [0, 0, 1, 1]);
-  const square = focusLayout(layout293s, ['key_1', 'key_2', 'key_6', 'key_7']);
+  const square = focusLayout(layout293s, ['key_1', 'key_2', 'key_6', 'key_7'], { asOnPad: true });
   assert.deepEqual([square.width, square.height], [2.25, 2.25]);
   assert.notEqual(one.version, square.version);
   // A knob by its group or by one part brings all three parts.
@@ -485,6 +485,37 @@ test('focusLayout keeps only the chosen controls, moved to 0, 0', () => {
   const drawn = laidOut(one, { front: null, edge: 0.06 });
   assert.equal(drawn.items.length, 1);
   assert.ok(Math.abs(drawn.items[0].box.width - (1 / 1.12) * 100) < 1e-9);
+});
+
+test('focusLayout puts the keys side by side in the order typed, unless kept as on the pad', () => {
+  // 4-6 on the 293S: one row, whatever rows they're in on the pad.
+  const row = focusLayout(layout293s, ['key_4', 'key_5', 'key_6']);
+  assert.deepEqual(row.controls.map((c) => [c.name, c.x, c.y]), [['key_4', 0, 0], ['key_5', 1.25, 0], ['key_6', 2.5, 0]]);
+  assert.deepEqual([row.width, row.height], [3.5, 1]);
+  // Typed order wins over the pad's.
+  assert.deepEqual(focusLayout(layout293s, ['key_7', 'key_1']).controls.map((c) => c.name), ['key_7', 'key_1']);
+  // Two to a row.
+  const rows = focusLayout(layout293s, ['key_1', 'key_2', 'key_3'], { perRow: 2 });
+  assert.deepEqual(rows.controls.map((c) => [c.name, c.x, c.y]), [['key_1', 0, 0], ['key_2', 1.25, 0], ['key_3', 0, 1.25]]);
+  assert.deepEqual([rows.width, rows.height], [2.25, 2.25]);
+  // A knob's three parts stay together as one place in the row.
+  const knob = focusLayout(layoutAkp03e, ['key_1', 'top_knob']);
+  const parts = knob.controls.filter((c) => c.group === 'top_knob' || /top_knob/.test(c.name));
+  assert.equal(parts.length, 3);
+  assert.equal(new Set(parts.map((c) => c.x)).size, 1);
+  assert.ok(parts[0].x > 0);
+  // The layout's version tells the arrangements apart.
+  assert.notEqual(row.version, focusLayout(layout293s, ['key_4', 'key_5', 'key_6'], { asOnPad: true }).version);
+});
+
+test('normaliseKeyConfig reads keep_pad_layout and per_row', () => {
+  const plain = normaliseKeyConfig({ device_id: 'd', controls: '4-6' });
+  assert.equal(plain.keep_pad_layout, false);
+  assert.equal(plain.per_row, 0);
+  const set = normaliseKeyConfig({ device_id: 'd', controls: '4-6', keep_pad_layout: true, per_row: '2' });
+  assert.equal(set.keep_pad_layout, true);
+  assert.equal(set.per_row, 2);
+  assert.equal(normaliseKeyConfig({ device_id: 'd', controls: '1', per_row: -3 }).per_row, 0);
 });
 
 test('padEntities finds the pad entities by translation key, else by name', () => {
