@@ -313,7 +313,7 @@ async def app(
 
 @pytest.fixture
 async def app_with_pads(hass: HomeAssistant, app: FakeApp) -> FakeApp:
-    """Return a connected app that has sent a 293S and a dashboard pad."""
+    """Return a connected app that has sent a 293S and a virtual pad."""
     result = await app.send_state(
         [
             pad_state(),

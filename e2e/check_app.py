@@ -1,7 +1,7 @@
 """End-to-end check of the real app against the throwaway Home Assistant.
 
 Run it in WSL with the venv's Python while a sandboxed copy of the app is
-connected (STREAM_DOCK_HA_SANDBOX, with a dashboard pad whose first key toggles
+connected (STREAM_DOCK_HA_SANDBOX, with a virtual pad whose first key toggles
 input_boolean.desk_lamp, whose third key opens a program, and whose page 2
 exists):
 
@@ -118,7 +118,7 @@ async def our_pad(ha: Ha) -> dict:
     pads = (await ha.ok({"type": "stream_dock_ha/pads"}))["pads"]
     print("  pads:", [(p["name"], p["pc"], p["kind"], p["online"]) for p in pads])
     pad = next((p for p in pads if p["kind"] == "dashboard" and p["pc"] == "E2E Sandbox PC"), None)
-    check(pad is not None, "the sandbox PC's dashboard pad is listed by stream_dock_ha/pads")
+    check(pad is not None, "the sandbox PC's virtual pad is listed by stream_dock_ha/pads")
     return pad
 
 

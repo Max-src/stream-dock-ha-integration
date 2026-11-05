@@ -145,7 +145,7 @@
   } else if (s === 'screen') {
     addCard({ device_id: 'dev_293s' }, 420, 'Mini Monitor off', 'stream-dock-screen-card');
     const on = addCard({ device_id: 'dev_293s', show_card_background: false, title: 'Desk screen' }, 520, 'on, no background', 'stream-dock-screen-card');
-    addCard({ pad_id: PDASH }, 300, 'dashboard pad', 'stream-dock-screen-card');
+    addCard({ pad_id: PDASH }, 300, 'virtual pad', 'stream-dock-screen-card');
     await wait(400);
     if (params.has('on')) {
       if (params.has('mouse')) on.setConfig({ device_id: 'dev_293s', show_card_background: false, title: 'Desk screen', mouse: true });
@@ -160,7 +160,7 @@
       : s === 'plain-bare' ? { show_card_background: false, show_name: false, show_profile: false } : {};
     const c293 = addCard({ device_id: 'dev_293s', ...plain }, 500, '293S, by device_id');
     const cAkp = addCard({ pad_id: PAKP }, 400, 'AKP03E, by pad_id');
-    const cDash = addCard({ pad_id: PDASH, show_profile: true }, 360, 'Dashboard pad 4 x 2');
+    const cDash = addCard({ pad_id: PDASH, show_profile: true }, 360, 'Virtual pad 4 x 2');
     await wait(400);
     if (s === 'update') {
       control.updatePicture(P293, 'key_3', 'Lamp ON');
@@ -278,7 +278,7 @@
       card.setConfig({ pad_id: PDASH });
       await wait(300);
       check('changing pad unsubscribes the old one', control.subscriberCount(P293) === 0 && control.subscriberCount(PDASH) === 1);
-      check('draws the dashboard pad', root.querySelectorAll('.key').length === 8);
+      check('draws the virtual pad', root.querySelectorAll('.key').length === 8);
 
       // Removal unsubscribes.
       card.parentElement.remove();

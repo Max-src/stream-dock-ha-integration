@@ -97,7 +97,7 @@ For each pad:
 | Page (number) | The page showing, from 1 |
 | Screen (light) | Turns the screen off or on, and sets its brightness |
 | Mini Monitor (switch) | Only on pads that can show it |
-| Connected (binary sensor) | The physical pad is plugged in. Not on dashboard pads |
+| Connected (binary sensor) | The physical pad is plugged in. Not on virtual pads |
 | Press (event) | Each press, named after the control. `dismissed` when a press only cleared an alert or woke the screen |
 | Picture (image) | A picture of the whole pad |
 | Alert (notify) | Sends a message as an alert over the keys |

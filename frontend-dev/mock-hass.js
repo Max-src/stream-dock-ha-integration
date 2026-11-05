@@ -167,7 +167,7 @@ export function createMockHass({ log = () => {}, latency = 40 } = {}) {
     padState('2b7e91c4d05a3f68', 'akp03e', 'AKP03E', 'Side knobs', layoutAkp03e,
       { profile: { id: 'aa11', name: 'Media' }, pages: 1, body: bodyBlack }));
   addPad('f00dfeed12345678', 'dev_dash', 'LAPTOP-OFFICE',
-    padState('f00dfeed12345678', 'dashboard', 'Dashboard pad', 'Living room', layoutDashboard,
+    padState('f00dfeed12345678', 'dashboard', 'Virtual pad', 'Living room', layoutDashboard,
       { profile: { id: 'bb22', name: 'Evening' }, page: 2, pages: 4, body: bodyClear }), ['key_8']);
 
   // Some press errors, as the integration returns them (protocol 5.3).

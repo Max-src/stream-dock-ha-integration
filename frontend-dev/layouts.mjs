@@ -59,7 +59,7 @@ export const layoutAkp03e = (() => {
   return { version: '1c0de03e5a7b9f21', width: round(right + 2.35), height: round(2 + 2 * g + 0.62 + 0.2), controls };
 })();
 
-/** A 4 x 2 dashboard pad (an on-screen pad in the app). */
+/** A 4 x 2 virtual pad (an on-screen pad in the app). */
 export const layoutDashboard = (() => {
   const g = 0.25;
   const controls = [];
@@ -70,7 +70,7 @@ export const layoutDashboard = (() => {
   return { version: 'd45b0a8e2c7f3611', width: round(4 + 3 * g), height: round(2 + g), controls };
 })();
 
-/** PadState `body`s: a white 293S with rounded keys, a black AKP03E, a see-through dashboard pad. */
+/** PadState `body`s: a white 293S with rounded keys, a black AKP03E, a see-through virtual pad. */
 export const bodyWhite = { front: [255, 255, 255], edge: 0.3, corner: 0.3, key_corner: 0.165, band_corner: 0.175 };
 export const bodyBlack = { front: [0, 0, 0], edge: 0.3, corner: 0.3, key_corner: 0.165, band_corner: 0.175 };
 export const bodyClear = { front: null, edge: 0.3, corner: 0.3, key_corner: 0.5, band_corner: 0.2 };

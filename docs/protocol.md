@@ -31,7 +31,7 @@ Message ids follow Home Assistant's rules: the app keeps using its single increa
 | --- | --- | --- | --- |
 | `instance_id` | 16 lowercase hex characters, random | The app, the first time it runs | Kept in the settings |
 | `machine` | 16 lowercase hex characters: FNV-1a 64 of `"stream-dock-ha:" + MachineGuid` (`HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`; `"unknown"` if missing) | The app, each start | Never stored by the app; stored by the integration |
-| `pad_id` | 16 lowercase hex characters, random | The app, when a pad is first set up in it (a physical pad or a dashboard pad) | Kept in the settings |
+| `pad_id` | 16 lowercase hex characters, random | The app, when a pad is first set up in it (a physical pad or a virtual pad) | Kept in the settings |
 | profile `id` | 16 lowercase hex characters, random | The app, when a profile is made | Kept in the settings |
 
 Duplicates can only come from copying a settings file, so they are handled in two places:
@@ -154,7 +154,7 @@ Changes to `pc.cpu`, `pc.memory` and `pc.gpu` alone send it at most every 10 s.
 
 **Layout**
 
-Where every control is, in **key units**: 1.0 is the width of one key. The gaps between keys as they're seen are already included, so a key in column `c` starts at `x = c * (1 + gap_x)`. They're a quarter of a key on the 293S and dashboard pads, and 0.26 on the AKP03E, as the app's window and pads on screen draw them. They aren't the pad's own gap setting, which is the screen hidden between keys that pictures across keys skip.
+Where every control is, in **key units**: 1.0 is the width of one key. The gaps between keys as they're seen are already included, so a key in column `c` starts at `x = c * (1 + gap_x)`. They're a quarter of a key on the 293S and virtual pads, and 0.26 on the AKP03E, as the app's window and pads on screen draw them. They aren't the pad's own gap setting, which is the screen hidden between keys that pictures across keys skip.
 
 ```json
 {
@@ -177,7 +177,7 @@ Where every control is, in **key units**: 1.0 is the width of one key. The gaps 
 - `type` is `key`, `button`, `knob_left`, `knob_right`, `knob_press` or `band`. A knob's three parts share `group` and geometry: the card draws one knob with a left half, a right half and a centre.
 - `screen`: the control shows a picture. `press`: pressing it does something.
 - `width` and `height` cover every control, band tiles and knobs included.
-- `version` changes when the layout changes, for example when a dashboard pad's profile has a different grid.
+- `version` changes when the layout changes, for example when a virtual pad's profile has a different grid.
 - Control names are the ones in [home-assistant-control.md](home-assistant-control.md): `key_N` counted from 1, left to right then down; `button_N`; `<knob>_knob_<left|right|press>`; and `band_N`, from the top, for the 293S's band tiles.
 
 **Body**

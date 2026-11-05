@@ -57,7 +57,7 @@ async def test_state_creates_devices_and_entities(
         entry.unique_id
         for entry in er.async_entries_for_device(registry, dash_device.id)
     }
-    # No Mini Monitor switch and no Connected sensor for a dashboard pad.
+    # No Mini Monitor switch and no Connected sensor for a virtual pad.
     assert dash_unique_ids == {
         f"{PAD_DASH}_{key}"
         for key in ("profile", "page", "screen", "press", "picture", "alert")
