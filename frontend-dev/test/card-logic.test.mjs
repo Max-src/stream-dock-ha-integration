@@ -224,7 +224,7 @@ test('headerDetail', () => {
 
 test('normaliseConfig', () => {
   assert.deepEqual(normaliseConfig({ pad_id: 'x' }), {
-    pad_id: 'x', show_name: true, show_profile: true, show_card_background: true,
+    pad_id: 'x', show_profile: true, show_card_background: true,
     tilt: false, show_page_buttons: false, press_effect: true, show_pad_presses: true,
   });
   // Each extra can be turned the other way.
@@ -248,7 +248,7 @@ test('config form and Lovelace hooks', () => {
     [['expandable', 'Pad'], ['expandable', 'Appearance'], ['expandable', 'Extras'], ['expandable', 'Pictures']]);
   assert.ok(form.schema.every((s) => s.flatten === true));
   const fields = form.schema.flatMap((s) => s.schema);
-  assert.deepEqual(fields.map((f) => f.name), ['device_id', 'title', 'show_card_background', 'show_name', 'show_profile', 'tilt',
+  assert.deepEqual(fields.map((f) => f.name), ['device_id', 'title', 'show_card_background', 'show_profile', 'tilt',
     'show_page_buttons', 'press_effect', 'show_pad_presses', 'scale']);
   assert.ok(fields.every((f) => typeof form.computeLabel(f) === 'string'));
   const device = fields.find((s) => s.name === 'device_id');
@@ -258,6 +258,15 @@ test('config form and Lovelace hooks', () => {
     'select.desk_pad_profile': { entity_id: 'select.desk_pad_profile', platform: 'stream_dock_ha', device_id: 'dev9' },
   } });
   assert.equal(stub.device_id, 'dev9');
+  assert.equal('title' in stub, false, 'no device name known, no title');
+  // A new card's title starts as the pad's name, which the person can change or clear.
+  const named = StreamDockCard.getStubConfig({
+    entities: { 'select.desk_pad_profile': { entity_id: 'select.desk_pad_profile', platform: 'stream_dock_ha', device_id: 'dev9' } },
+    devices: { dev9: { name: 'Stream Dock 293S', name_by_user: 'Desk pad' } },
+  });
+  assert.equal(named.title, 'Desk pad');
+  // The title alone decides the header: an old show_name is dropped.
+  assert.equal('show_name' in normaliseConfig({ show_name: false, title: 'Desk' }), false);
   assert.equal(StreamDockCard.getStubConfig(undefined).device_id, '');
 });
 
@@ -544,10 +553,9 @@ test('pressedControl reads the press event, leaving dismissals out', () => {
 test('the key card and its config', () => {
   const cfg = normaliseKeyConfig({ device_id: 'd', controls: '1-2' });
   assert.deepEqual(cfg.focus, ['key_1', 'key_2']);
-  assert.equal(cfg.show_name, false, 'no header unless asked for');
+  assert.equal('title' in cfg, false, 'no header without a title');
   assert.equal(cfg.show_pad_body, false);
   assert.equal(cfg.press_effect, true);
-  assert.equal(normaliseKeyConfig({ controls: '1', show_name: true }).show_name, true);
   assert.throws(() => normaliseKeyConfig(null));
   const form = StreamDockKeyCard.getConfigForm();
   const fields = form.schema.flatMap((s) => s.schema);

@@ -448,7 +448,7 @@ Device identifiers are `("stream_dock_ha", instance_id)` for a PC and `("stream_
 | `sensor` Last press | PC | `<instance_id>_last_press` | Timestamp |
 | `binary_sensor` Online | PC | `<instance_id>_online` | Connectivity. The one entity that stays available while the PC is offline |
 
-Every entity but **Online** is unavailable while its PC is offline. A pad's entities are also unavailable while its pad isn't listed in the latest `state`. A pad listed nowhere for good is removed by deleting its device in Home Assistant, which the integration allows.
+Every entity but **Online** is unavailable while its PC is offline. A pad's entities are also unavailable while its pad isn't listed in the latest `state`. A virtual pad (`dashboard`) its PC no longer lists was deleted in the app, so the integration removes its device and entities. A physical pad listed nowhere for good is removed by deleting its device in Home Assistant, which the integration allows.
 
 Each press also fires the bus event `stream_dock_ha_event` with `device_id`, `pad_id`, `control`, `profile`, `page`, `title`, `source`, `dismissed`. Device triggers are built on it: type `pressed`, subtype the control name. The app keeps firing its own `stream_dock_ha_pressed` events as before, for existing automations.
 

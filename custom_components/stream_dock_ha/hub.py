@@ -213,8 +213,9 @@ class StreamDockHub:
             self._schedule_save()
 
         renew, new_pads, changed_pads = self._apply_pad_states(pc, msg["pads"])
+        deleted = self._deleted_virtual_pads(pc, msg["pads"])
 
-        if new_pads or changed_pads:
+        if new_pads or changed_pads or deleted:
             self._schedule_save()
         for pad in new_pads:
             async_dispatcher_send(
@@ -230,9 +231,34 @@ class StreamDockHub:
             for pad in self.pads.values():
                 if pad.instance_id == pc.instance_id and pad not in changed_pads:
                     self._send_pad_to_cards(pad)
+        if deleted:
+            registry = dr.async_get(self.hass)
+            for pad in deleted:
+                _LOGGER.debug("Virtual pad %s was deleted in the app", pad.pad_id)
+                self.pads.pop(pad.pad_id, None)
+                if pad.device_id and registry.async_get(pad.device_id) is not None:
+                    # Its entities go with it.
+                    registry.async_remove_device(pad.device_id)
         if renew:
             _LOGGER.debug("PC %s must renew pads %s", pc.instance_id, renew)
         return renew
+
+    def _deleted_virtual_pads(self, pc: Pc, states: list[dict[str, Any]]) -> list[Pad]:
+        """This PC's virtual pads its `state` no longer lists: deleted in the app.
+
+        Their devices go, so Home Assistant doesn't keep a second "Virtual pad"
+        that can never come back. A physical pad that's missing keeps its
+        device: the app never deletes those, so it's something going wrong,
+        and its automations should carry on when it's back.
+        """
+        listed = {state["id"] for state in states}
+        return [
+            pad
+            for pad in self.pads.values()
+            if pad.instance_id == pc.instance_id
+            and pad.pad_id not in listed
+            and pad.state.get("kind") == "dashboard"
+        ]
 
     def _apply_pad_states(
         self, pc: Pc, states: list[dict[str, Any]]

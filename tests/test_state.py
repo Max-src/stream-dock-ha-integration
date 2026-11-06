@@ -157,16 +157,37 @@ async def test_state_changes_update_entities(
 async def test_pad_not_listed_is_unavailable(
     hass: HomeAssistant, app_with_pads: FakeApp
 ) -> None:
-    """A pad missing from the latest state has unavailable entities."""
-    await app_with_pads.send_state([pad_state()])
+    """A physical pad missing from the latest state keeps its device, with
+    unavailable entities: the app never deletes one, so it can come back."""
+    await app_with_pads.send_state(
+        [pad_state(PAD_DASH, kind="dashboard", model="Dashboard", name="Tablet")]
+    )
     await hass.async_block_till_done()
     assert (
-        hass.states.get(entity_id(hass, "select", f"{PAD_DASH}_profile")).state
+        hass.states.get(entity_id(hass, "select", f"{PAD_1}_profile")).state
         == STATE_UNAVAILABLE
     )
-    assert (
-        hass.states.get(entity_id(hass, "select", f"{PAD_1}_profile")).state == "Home"
+    assert get_device(hass, PAD_1) is not None
+
+
+async def test_a_deleted_virtual_pad_takes_its_device(
+    hass: HomeAssistant, app_with_pads: FakeApp
+) -> None:
+    """A virtual pad the app no longer lists was deleted there: its device and
+    entities go, so Home Assistant doesn't keep a second one."""
+    profile = entity_id(hass, "select", f"{PAD_DASH}_profile")
+    await app_with_pads.send_state([pad_state()])
+    await hass.async_block_till_done()
+    assert get_device(hass, PAD_DASH) is None
+    assert hass.states.get(profile) is None
+    assert er.async_get(hass).async_get(profile) is None
+    assert get_device(hass, PAD_1) is not None
+    # A new one made later is a device again.
+    await app_with_pads.send_state(
+        [pad_state(), pad_state("0c7f4d3409aa7e17", kind="dashboard", model="Dashboard", name="Virtual pad")]
     )
+    await hass.async_block_till_done()
+    assert get_device(hass, "0c7f4d3409aa7e17") is not None
 
 
 async def test_renew_pads(

@@ -247,12 +247,15 @@ async def test_device_removal(
     response = await client.remove_device(get_device(hass, INSTANCE_1).id)
     assert not response["success"]
 
-    # A pad left out of the state can go.
-    await app_with_pads.send_state([pad_state()])
-    response = await client.remove_device(get_device(hass, PAD_DASH).id)
+    # A physical pad left out of the state keeps its device until it's
+    # removed by hand. (A virtual pad's goes by itself: test_state.py.)
+    await app_with_pads.send_state(
+        [pad_state(PAD_DASH, kind="dashboard", model="Dashboard", name="Tablet")]
+    )
+    response = await client.remove_device(get_device(hass, PAD_1).id)
     assert response["success"]
-    assert get_device(hass, PAD_DASH) is None
-    assert PAD_DASH not in setup_entry.runtime_data.pads
+    assert get_device(hass, PAD_1) is None
+    assert PAD_1 not in setup_entry.runtime_data.pads
 
     # An offline PC can go, with its pads.
     await app_with_pads.client.close()
@@ -260,7 +263,7 @@ async def test_device_removal(
     response = await client.remove_device(get_device(hass, INSTANCE_1).id)
     assert response["success"]
     assert get_device(hass, INSTANCE_1) is None
-    assert get_device(hass, PAD_1) is None
+    assert get_device(hass, PAD_DASH) is None
     assert setup_entry.runtime_data.pcs == {}
 
 

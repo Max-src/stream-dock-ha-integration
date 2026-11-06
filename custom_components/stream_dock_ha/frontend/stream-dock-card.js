@@ -13,7 +13,7 @@
 const CARD_TYPE = 'stream-dock-card';
 const KEY_CARD_TYPE = 'stream-dock-key-card';
 const SCREEN_CARD_TYPE = 'stream-dock-screen-card';
-const CARD_VERSION = '0.1.10';
+const CARD_VERSION = '0.1.11';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;
@@ -364,7 +364,9 @@ export function normaliseConfig(config) {
   } else {
     delete out.scale;
   }
-  out.show_name = out.show_name !== false;
+  // The title shows when there is one: no separate switch. An old card's
+  // show_name is dropped.
+  delete out.show_name;
   out.show_profile = out.show_profile !== false;
   out.show_card_background = out.show_card_background !== false;
   if (typeof out.title !== 'string' || !out.title.trim()) delete out.title;
@@ -475,6 +477,12 @@ function placedInRows(controls, wanted, perRow) {
     y += tall + ROW_GAP;
   }
   return out;
+}
+
+/** The name Home Assistant shows for a pad's device, for a new card's title. */
+export function padNameOf(hass, deviceId) {
+  const device = hass && hass.devices && deviceId ? hass.devices[deviceId] : null;
+  return device ? String(device.name_by_user || device.name || '') : '';
 }
 
 /**
@@ -784,13 +792,12 @@ ha-card.plain .screen { box-shadow: none; }
 /** The editors' labels and help, shared by the three cards. */
 const LABELS = {
   device_id: 'Pad',
-  title: 'Card title (optional)',
+  title: 'Title',
   controls: 'Keys',
   show_card_background: 'Show card background',
   show_pad_body: 'Show the pad round the keys',
   keep_pad_layout: 'Keep the keys where they are on the pad',
   per_row: 'Keys per row (empty: all in one row)',
-  show_name: 'Show the title',
   show_profile: 'Show the profile and page',
   tilt: 'Tilted 3D look',
   show_page_buttons: 'Profile and page buttons',
@@ -801,7 +808,7 @@ const LABELS = {
   scale: 'Picture scale (empty: automatic)',
 };
 const HELPERS = {
-  title: "Shown above the keys instead of the pad's name.",
+  title: 'Shown above the keys. Leave it empty for no title.',
   controls: 'A key number as the app counts them (3), several for a group (1, 2, 6-7), or names such as band_1, button_2 or top_knob.',
   keep_pad_layout: 'Off: the keys sit side by side in the order typed.',
   per_row: 'Ignored while the keys keep their places on the pad.',
@@ -896,8 +903,7 @@ export class StreamDockCard extends Base {
           icon: 'mdi:palette-outline',
           schema: [
             { name: 'show_card_background', selector: { boolean: {} } },
-            { name: 'show_name', selector: { boolean: {} } },
-            { name: 'show_profile', selector: { boolean: {} } },
+              { name: 'show_profile', selector: { boolean: {} } },
             { name: 'tilt', selector: { boolean: {} } },
           ],
         },
@@ -933,12 +939,11 @@ export class StreamDockCard extends Base {
     const entities = hass && hass.entities ? Object.values(hass.entities) : [];
     const select = entities.find((e) => e && e.platform === 'stream_dock_ha'
       && typeof e.entity_id === 'string' && e.entity_id.startsWith('select.') && e.device_id);
-    return {
-      device_id: select ? select.device_id : '',
-      show_card_background: true,
-      show_name: true,
-      show_profile: true,
-    };
+    const deviceId = select ? select.device_id : '';
+    const out = { device_id: deviceId, show_card_background: true, show_profile: true };
+    const name = padNameOf(hass, deviceId);
+    if (name) out.title = name;
+    return out;
   }
 
   /** The pad's Layout as this card draws it: all of it, here. */
@@ -977,7 +982,7 @@ export class StreamDockCard extends Base {
 
   getCardSize() {
     const layout = this._layout || this._cachedLayout();
-    const header = this._config && (this._config.show_name || this._config.show_profile) ? 1 : 0;
+    const header = this._config && (this._config.title || this._config.show_profile) ? 1 : 0;
     if (!layout) return 4 + header;
     // About 450 px wide in masonry; one size unit is 50 px.
     return Math.max(2, Math.ceil((450 * layout.height) / layout.width / 50) + header);
@@ -1602,12 +1607,11 @@ export class StreamDockCard extends Base {
     this._padEl.classList.toggle('fx', cfg.press_effect !== false);
     this._renderBar();
 
-    // Header: the card's own title, or the pad's name.
-    const name = cfg.title || (pad && pad.name) || '';
+    // Header: the card's title, when it has one.
+    const name = cfg.title || '';
     const detail = headerDetail(pad, cfg.show_profile);
-    const showHeader = (cfg.show_name && !!name) || !!detail;
-    this._header.hidden = !showHeader;
-    this._nameEl.textContent = cfg.show_name ? name : '';
+    this._header.hidden = !name && !detail;
+    this._nameEl.textContent = name;
     this._detailEl.textContent = detail;
     this._chipEl.hidden = !(pad && pad.alert);
 
@@ -1900,7 +1904,7 @@ function safeUnsub(unsub) {
 /** A one-key card's config: which controls, and no header unless asked for. */
 export function normaliseKeyConfig(config) {
   if (!config || typeof config !== 'object') throw new Error('Invalid configuration');
-  const out = normaliseConfig({ show_name: false, show_profile: false, ...config });
+  const out = normaliseConfig({ show_profile: false, ...config });
   out.focus = parseControls(out.controls);
   out.show_pad_body = out.show_pad_body === true;
   out.keep_pad_layout = out.keep_pad_layout === true;
@@ -1929,7 +1933,6 @@ export class StreamDockKeyCard extends StreamDockCard {
         section('Appearance', 'mdi:palette-outline', [
           { name: 'show_card_background', selector: { boolean: {} } },
           { name: 'show_pad_body', selector: { boolean: {} } },
-          { name: 'show_name', selector: { boolean: {} } },
         ]),
         section('Extras', 'mdi:creation-outline', [
           { name: 'press_effect', selector: { boolean: {} } },
@@ -1950,7 +1953,7 @@ export class StreamDockKeyCard extends StreamDockCard {
 
   getCardSize() {
     const layout = this._layout;
-    const header = this._config && this._config.show_name ? 1 : 0;
+    const header = this._config && this._config.title ? 1 : 0;
     return Math.max(1, Math.ceil(layout ? (150 * layout.height) / layout.width / 50 : 3) + header);
   }
 
@@ -2020,7 +2023,6 @@ export class StreamDockScreenCard extends StreamDockCard {
         section('Pad', 'mdi:monitor-screenshot', [DEVICE_FIELD, { name: 'title', selector: { text: {} } }], true),
         section('Appearance', 'mdi:palette-outline', [
           { name: 'show_card_background', selector: { boolean: {} } },
-          { name: 'show_name', selector: { boolean: {} } },
           { name: 'show_turn_on', selector: { boolean: {} } },
         ]),
         section('Mouse', 'mdi:mouse', [{ name: 'mouse', selector: { boolean: {} } }]),
@@ -2031,11 +2033,11 @@ export class StreamDockScreenCard extends StreamDockCard {
   }
 
   static getStubConfig(hass) {
-    return { device_id: StreamDockCard.getStubConfig(hass).device_id, show_card_background: true, show_name: true };
+    return StreamDockCard.getStubConfig(hass);
   }
 
   getCardSize() {
-    return 5 + (this._config && this._config.show_name ? 1 : 0);
+    return 5 + (this._config && this._config.title ? 1 : 0);
   }
 
   getGridOptions() {

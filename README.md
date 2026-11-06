@@ -55,9 +55,8 @@ To add it with the editor, edit a dashboard, choose **Add card**, pick **Stream 
 | Section | Setting | What it does |
 | --- | --- | --- |
 | Pad | Pad | Which pad the card shows |
-| Pad | Card title | Shown above the keys instead of the pad's name. Optional |
+| Pad | Title | Shown above the keys. Leave it empty for no title. A new card starts with the pad's name |
 | Appearance | Show card background | Off: no frame round the card, and the pad uses all the room. On by default |
-| Appearance | Show the title | The title (or pad name) above the keys. On by default |
 | Appearance | Show the profile and page | What the pad is showing. On by default |
 | Appearance | Tilted 3D look (`tilt`) | The pad leans back as if lying on a desk, with its thickness and a shadow. Keys still press. Off by default |
 | Extras | Profile and page buttons (`show_page_buttons`) | Buttons under the pad to change its profile and page, through its Profile and Page entities. Off by default |
@@ -72,7 +71,6 @@ type: custom:stream-dock-card
 device_id: <the pad's device id>
 title: Desk
 show_card_background: true
-show_name: true
 show_profile: true
 tilt: false
 show_page_buttons: false
@@ -121,7 +119,6 @@ device_id: <the pad's device id>
 controls: "3"            # or "1, 2, 6-7" for a group, or band_1, button_2, top_knob
 show_card_background: true
 show_pad_body: false     # true: the pad's front round the keys
-show_name: false
 press_effect: true
 show_pad_presses: true
 ```
@@ -137,7 +134,6 @@ type: custom:stream-dock-screen-card
 device_id: <the pad's device id>
 title: Desk screen
 show_card_background: true
-show_name: true
 show_turn_on: true
 mouse: false
 ```
