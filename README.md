@@ -33,12 +33,12 @@ Go to **Settings > Devices & services**, choose **Add integration** and pick **S
 ### 3. Connect the app on each PC
 
 1. In the app, open **Settings > Home Assistant** and connect it to Home Assistant, if it isn't already. **Use a token from an administrator user.** Home Assistant only lets administrators use the integration's commands, so with another user's token the PC never appears. To make one, log in as an administrator, open your profile, then **Security > Long-lived access tokens > Create token**.
-2. Tick **Let Home Assistant control this app**.
-3. Leave **Show this PC in the Stream Dock HA integration** ticked, as it is at first. You can change the PC's name there; Home Assistant follows it.
+2. Tick **Press keys, switch profiles and pages, and change keys**.
+3. Leave **Show this PC and its pads in Home Assistant** ticked, as it is at first. You can change the PC's name there; Home Assistant follows it.
 
 The line under them should read **Integration: connected as** the PC's name. The PC then appears under **Settings > Devices & services > Stream Dock HA**, with each of its pads under it. If the line says something else, see [Troubleshooting](#troubleshooting).
 
-Keys that open programs or websites, press keys or type text can't be pressed from Home Assistant until you allow it: in the app, select the key and set its **Pressing from Home Assistant** to **Always**. Home Assistant can't change that setting.
+Keys that open programs or websites, press keys or type text can't be pressed from Home Assistant until you allow it: in the app, select the key, open **More for this key**, and set its **Pressing from Home Assistant** to **Always**. Home Assistant can't change that setting.
 
 ### Options
 
@@ -83,7 +83,7 @@ scale: 2
 
 The card shows the pad's keys as the pad shows them, live, alerts included. Tap a key to press it. Pads of a PC that's off are shown dimmed, with their last pictures, and can't be pressed. A card only follows its pad while it can be seen: in a hidden browser tab, or scrolled well out of view, it keeps its last pictures and nothing is sent to it.
 
-With Mini Monitor on, the card shows the PC screen across the pad's keys, as the pad does. The app sends a few pictures a second, only while a card shows that pad; set how many in the app's **Settings > Home Assistant**. When the app reaches Home Assistant through the internet, it sends those pictures straight to Home Assistant's local address instead (**Settings > System > Network** in Home Assistant), if it has one.
+With Mini Monitor on, the card shows the PC screen across the pad's keys, as the pad does. The app sends a few pictures a second, only while a card shows that pad; set how many in the app's **Monitor** tab. When the app reaches Home Assistant through the internet, it sends those pictures straight to Home Assistant's local address instead (**Settings > System > Network** in Home Assistant), if it has one.
 
 ## Entities
 
@@ -138,7 +138,7 @@ show_turn_on: true
 mouse: false
 ```
 
-With **Use the mouse on Mini Monitor** (`mouse: true`), the card works like a remote screen: click, drag, right-click (a long press on a phone), scroll, and hover with a mouse. It moves the PC's real pointer onto the Mini Monitor display. Only administrators can use it, and only once the app allows it: **Settings > Home Assistant > Dashboard cards can use the mouse on Mini Monitor**, under **Let Home Assistant control this app**. A small mouse sign in the corner shows it's on.
+With **Use the mouse on Mini Monitor** (`mouse: true`), the card works like a remote screen: click, drag, right-click (a long press on a phone), scroll, and hover with a mouse. It moves the PC's real pointer onto the Mini Monitor display. Only administrators can use it, and only once the app allows it: **Cards can use the mouse** in the app's **Monitor** tab, which works only with **Press keys, switch profiles and pages, and change keys** on in **Settings > Home Assistant**. A small mouse sign in the corner shows it's on.
 
 ## Actions
 
@@ -202,7 +202,7 @@ To use them, copy the `stream_dock_ha` folder into `/config/blueprints/automatio
 
 ## Troubleshooting
 
-The app says how the integration is doing in **Settings > Home Assistant**, on the line under **Show this PC in the Stream Dock HA integration**. That line shows only while the app is connected to Home Assistant and the box is ticked; if it's missing, check the address and token above it first.
+The app says how the integration is doing in **Settings > Home Assistant**, on the line under **Show this PC and its pads in Home Assistant**. That line shows only while the app is connected to Home Assistant and the box is ticked; if it's missing, check the address and token above it first.
 
 | The app says | What to do |
 | --- | --- |
@@ -218,7 +218,7 @@ On a card or from an action:
 | You see | What it means |
 | --- | --- |
 | A key refused, saying it opens programs or presses keys, or can't be pressed | That key's **Pressing from Home Assistant** setting, in the app. **Automatic** refuses keys that open programs or websites, press keys or type text, and **Never** refuses everything. Choose **Always** to allow it |
-| Home Assistant control is off in the app | Tick **Let Home Assistant control this app** in the app |
+| Home Assistant control is off in the app | Tick **Press keys, switch profiles and pages, and change keys** in the app |
 | Only administrators can press keys here | The option **Only administrators can press keys on dashboards** is on, and you're not an administrator |
 | PC offline | The app on that PC is closed, or not connected to Home Assistant |
 | An action fails after 10 seconds | The app didn't answer. Check that it's running and connected |

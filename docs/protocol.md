@@ -63,7 +63,7 @@ Sent once after login, before anything else.
 ```
 
 - `name` is the PC's name (`COMPUTERNAME`) unless the person renamed it in the app.
-- `control` mirrors the app's **Let Home Assistant control this app** setting. When it's `false`, the integration still shows everything, but it refuses changes and presses with the error `control_off`, without asking the app.
+- `control` mirrors the app's **Press keys, switch profiles and pages, and change keys** setting. When it's `false`, the integration still shows everything, but it refuses changes and presses with the error `control_off`, without asking the app.
 
 Result on success:
 
@@ -376,7 +376,7 @@ The mouse on Mini Monitor, from the Mini Monitor card. `action` is `move`, `down
 - `offline`: the PC isn't connected
 - `control_off`: the app's control setting is off
 - `unauthorized`: the user isn't an administrator
-- `failed`: the app said no, or didn't answer within 10 s; `message` says why, for example `Mouse from dashboard cards is off in Stream Dock HA (Settings > Home Assistant)` or `Mini Monitor isn't showing on this pad`
+- `failed`: the app said no, or didn't answer within 10 s; `message` says why, for example `Mouse from dashboard cards is off in Stream Dock HA (Monitor tab)` or `Mini Monitor isn't showing on this pad`
 
 These commands can also fail with `not_set_up` when the integration has no config entry.
 
@@ -407,7 +407,7 @@ Like an alert, but on a single screen key, over whatever that key shows on the p
 
 These rules apply to every route Home Assistant has into the app (events, actions, entities, the card).
 
-1. **Let Home Assistant control this app** (`ha_control`, off by default) must be on for any command but `state`, `get_key` and `snapshot`.
+1. **Press keys, switch profiles and pages, and change keys** (`ha_control`, off by default) must be on for any command but `state`, `get_key` and `snapshot`.
 2. Each key has **Pressing from Home Assistant** (`remote`), one of:
    - `auto` (the default): it can be pressed, unless one of its steps acts on the PC (`open`, `website`, `shortcut`, `type_text`).
    - `allow`: it can always be pressed.
@@ -415,8 +415,8 @@ These rules apply to every route Home Assistant has into the app (events, action
 
    This applies to `press_key` from any `source` but `pad`, `screen` and `hotkey`.
 3. Home Assistant can't change a key's `remote`: a `set_key` that tries is refused. A `set_key` that changes `actions` puts `remote` back to `auto`.
-4. Adding steps that act on the PC still needs **Also keys that open programs or press keys** (`ha_control_programs`).
-5. `mouse` also needs **Dashboard cards can use the mouse on Mini Monitor** (`ha_mouse`, off by default), under **Let Home Assistant control this app**. It's refused from sources `pad`, `screen` and `hotkey`. Keys' `remote` doesn't apply to it.
+4. Adding steps that act on the PC still needs **Add keys that open programs or press keys** (`ha_control_programs`).
+5. `mouse` also needs **Cards can use the mouse** in the **Monitor** tab (`ha_mouse`, off by default), which works only with **Press keys, switch profiles and pages, and change keys** on. It's refused from sources `pad`, `screen` and `hotkey`. Keys' `remote` doesn't apply to it.
 
 ### In the integration
 
