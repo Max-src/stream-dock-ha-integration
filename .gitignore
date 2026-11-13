@@ -8,3 +8,4 @@ node_modules/
 .ruff_cache/
 frontend-dev/.edge-profile*/
 frontend-dev/.edge-profile.lock
+frontend-dev/shots/

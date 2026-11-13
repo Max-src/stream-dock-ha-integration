@@ -34,12 +34,6 @@ KIND_STREAM_DOCK_293S: Final = "stream_dock_293s"
 KIND_AKP03E: Final = "akp03e"
 KIND_DASHBOARD: Final = "dashboard"
 
-MANUFACTURERS: Final = {
-    KIND_STREAM_DOCK_293S: "Mirabox",
-    KIND_AKP03E: "AJAZZ",
-    KIND_DASHBOARD: NAME,
-}
-
 EVENT_TYPE_DISMISSED: Final = "dismissed"
 
 PLATFORMS: Final = [

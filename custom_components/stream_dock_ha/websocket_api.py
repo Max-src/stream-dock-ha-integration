@@ -483,6 +483,31 @@ def ws_watch(
         send(pictures)
 
 
+async def _run_command(
+    hub: StreamDockHub,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+    command: str,
+    fields: dict[str, Any],
+) -> None:
+    """Send a card's command to the pad's app and answer with its result."""
+    try:
+        result = await hub.async_command(
+            msg["pad_id"],
+            command,
+            fields,
+            source="dashboard",
+            user=connection.user.name,
+        )
+    except NoAnswerError as err:
+        connection.send_error(msg["id"], ERR_FAILED, err.text)
+        return
+    except StreamDockError as err:
+        connection.send_error(msg["id"], err.code, err.text)
+        return
+    connection.send_result(msg["id"], result)
+
+
 @websocket_api.websocket_command(
     {
         probatio.Required("type"): "stream_dock_ha/press",
@@ -507,21 +532,9 @@ async def ws_press(
             "Only administrators can press keys here",
         )
         return
-    try:
-        result = await hub.async_command(
-            msg["pad_id"],
-            "press_key",
-            {"control": msg["control"]},
-            source="dashboard",
-            user=connection.user.name,
-        )
-    except NoAnswerError as err:
-        connection.send_error(msg["id"], ERR_FAILED, err.text)
-        return
-    except StreamDockError as err:
-        connection.send_error(msg["id"], err.code, err.text)
-        return
-    connection.send_result(msg["id"], result)
+    await _run_command(
+        hub, connection, msg, "press_key", {"control": msg["control"]}
+    )
 
 
 @websocket_api.websocket_command(
@@ -568,18 +581,4 @@ async def ws_mouse(
     fields = {key: msg[key] for key in ("action", "x", "y", "button")}
     if msg["action"] == "scroll":
         fields["amount"] = msg["amount"]
-    try:
-        result = await hub.async_command(
-            msg["pad_id"],
-            "mouse",
-            fields,
-            source="dashboard",
-            user=connection.user.name,
-        )
-    except NoAnswerError as err:
-        connection.send_error(msg["id"], ERR_FAILED, err.text)
-        return
-    except StreamDockError as err:
-        connection.send_error(msg["id"], err.code, err.text)
-        return
-    connection.send_result(msg["id"], result)
+    await _run_command(hub, connection, msg, "mouse", fields)
