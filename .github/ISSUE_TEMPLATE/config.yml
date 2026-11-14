@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: A problem with the Windows app
+    url: https://github.com/Max-src/stream-dock-ha/issues
+    about: Keys, pads, Mini Monitor and the app's window belong to the app's own repository.
+  - name: The app's download
+    url: https://github.com/Max-src/stream-dock-ha/releases/latest
+    about: The integration needs the Stream Dock HA app on each Windows PC.

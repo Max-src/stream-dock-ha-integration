@@ -1,6 +1,16 @@
 # Stream Dock HA integration
 
-A Home Assistant integration for the **Stream Dock HA** Windows app, which runs Stream Dock 293S and AJAZZ AKP03E pads, and pads on a dashboard.
+[![Validate](https://github.com/Max-src/stream-dock-ha-integration/actions/workflows/validate.yaml/badge.svg)](https://github.com/Max-src/stream-dock-ha-integration/actions/workflows/validate.yaml)
+[![Tests](https://github.com/Max-src/stream-dock-ha-integration/actions/workflows/tests.yaml/badge.svg)](https://github.com/Max-src/stream-dock-ha-integration/actions/workflows/tests.yaml)
+
+A Home Assistant integration for **[Stream Dock HA](https://github.com/Max-src/stream-dock-ha)**, the Windows app that runs StreamDock 293S and AJAZZ AKP03E pads, and pads on a dashboard.
+
+**The app comes first.** Stream Dock HA is a Windows app that drives the pads and already shows Home Assistant entities on their keys by itself. This integration is optional: it adds the other direction, so that Home Assistant can see and control the PCs and pads. Without the app on at least one PC, it has nothing to show.
+
+| You install | Where | What it's for |
+| --- | --- | --- |
+| [The Stream Dock HA app](https://github.com/Max-src/stream-dock-ha#try-it) | Each Windows PC with a pad | Runs the pads: keys, pages, Home Assistant keys, Mini Monitor |
+| This integration | Home Assistant, once | Devices, entities, actions, triggers and dashboard cards for those PCs and pads |
 
 With it, Home Assistant:
 
@@ -14,23 +24,41 @@ The app connects to Home Assistant over its usual connection. Nothing listens on
 
 ## Install
 
-You need Home Assistant 2026.8 or later, and the Stream Dock HA app 1.1.0 or later on each PC.
+You need Home Assistant 2026.8 or later, and the Stream Dock HA app on each PC.
 
-### 1. Put the integration in Home Assistant
+| Integration | Needs the app | Needs Home Assistant |
+| --- | --- | --- |
+| 0.1.x | 1.1.0 or later | 2026.8 or later |
+
+When the two don't match, the app says which one to update (see [Troubleshooting](#troubleshooting)).
+
+### 1. Install the app on each PC
+
+Download the setup file from the app's [latest release](https://github.com/Max-src/stream-dock-ha/releases/latest) and follow [its install steps](https://github.com/Max-src/stream-dock-ha#try-it). Connect it to Home Assistant in its **Settings > Home Assistant**, if you haven't already.
+
+### 2. Put the integration in Home Assistant
+
+**From the Marketplace** (Home Assistant 2026.11 or later):
+
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=Max-src&repository=stream-dock-ha-integration&category=integration)
+
+Or open **Settings > Marketplace** and search for **Stream Dock HA**. If it isn't listed, choose **Add from link** (upper right), enter `Max-src/stream-dock-ha-integration` and choose **Add**. Then download it and restart Home Assistant.
+
+**With HACS** (before Home Assistant 2026.11): in HACS, open the menu, choose **Custom repositories**, add `https://github.com/Max-src/stream-dock-ha-integration` with the type **Integration**, then download **Stream Dock HA** and restart Home Assistant.
 
 **By hand:**
 
-1. Download this repository.
+1. Download the latest [release](https://github.com/Max-src/stream-dock-ha-integration/releases/latest) of this repository.
 2. Copy its `custom_components/stream_dock_ha` folder into the `custom_components` folder inside Home Assistant's configuration folder, so you have `/config/custom_components/stream_dock_ha/manifest.json`. Create `custom_components` if it isn't there. The File editor or Samba add-ons can do this.
 3. Restart Home Assistant.
 
-**With HACS**, once this repository is public: in HACS, open the menu, choose **Custom repositories**, add `https://github.com/Max-src/stream-dock-ha-integration` with the type **Integration**, then download **Stream Dock HA** and restart Home Assistant.
+### 3. Add it
 
-### 2. Add it
+[![Open your Home Assistant instance and start setting up Stream Dock HA.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=stream_dock_ha)
 
-Go to **Settings > Devices & services**, choose **Add integration** and pick **Stream Dock HA**. There's nothing to fill in, and it's added once for all your PCs.
+Or go to **Settings > Devices & services**, choose **Add integration** and pick **Stream Dock HA**. There's nothing to fill in, and it's added once for all your PCs.
 
-### 3. Connect the app on each PC
+### 4. Connect the app on each PC
 
 1. In the app, open **Settings > Home Assistant** and connect it to Home Assistant, if it isn't already. **Use a token from an administrator user.** Home Assistant only lets administrators use the integration's commands, so with another user's token the PC never appears. To make one, log in as an administrator, open your profile, then **Security > Long-lived access tokens > Create token**.
 2. Tick **Press keys, switch profiles and pages, and change keys**.
@@ -191,14 +219,18 @@ An action fails when the PC is offline, when the app doesn't answer within 10 se
 
 Use the device trigger **"key_3" pressed** on a pad, or listen to the `stream_dock_ha_event` event. Its data holds `device_id`, `pad_id`, `control`, `profile`, `page`, `title`, `source` and `dismissed`.
 
-Blueprints in [`blueprints/automation/stream_dock_ha`](blueprints/automation/stream_dock_ha):
+Blueprints in [`blueprints/automation/stream_dock_ha`](blueprints/automation/stream_dock_ha). Each button imports one into your Home Assistant:
 
-- **Stream Dock knob dims a light**: turning a knob dims or brightens a light, pressing it toggles the light;
-- **Stream Dock key toggles an entity**;
-- **Stream Dock microphone drives an on-air light**;
-- **Stream Dock doorbell alert**: shows the door camera on a pad when the doorbell rings.
+| Blueprint | What it does | |
+| --- | --- | --- |
+| **Stream Dock knob dims a light** | Turning a knob dims or brightens a light, pressing it toggles the light | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMax-src%2Fstream-dock-ha-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fstream_dock_ha%2Fknob_dims_light.yaml) |
+| **Stream Dock key toggles an entity** | Pressing a key or button turns an entity on or off | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMax-src%2Fstream-dock-ha-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fstream_dock_ha%2Fkey_toggles_entity.yaml) |
+| **Stream Dock microphone drives an on-air light** | A light is on while the PC's microphone is live, off while it's muted or the PC is away | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMax-src%2Fstream-dock-ha-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fstream_dock_ha%2Fmicrophone_on_air_light.yaml) |
+| **Stream Dock doorbell alert** | When the doorbell rings, covers a pad's keys with the door camera; any press dismisses it | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMax-src%2Fstream-dock-ha-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fstream_dock_ha%2Fdoorbell_alert.yaml) |
 
-To use them, copy the `stream_dock_ha` folder into `/config/blueprints/automation/`, so you have `/config/blueprints/automation/stream_dock_ha/doorbell_alert.yaml`, then restart Home Assistant or reload automations. They appear under **Settings > Automations & scenes > Blueprints**, where **Create automation** on one of them sets it up. Once this repository is public, **Import blueprint** with a blueprint's GitHub address works too.
+Imported blueprints appear under **Settings > Automations & scenes > Blueprints**, where **Create automation** on one of them sets it up.
+
+To add them by hand instead, copy the `stream_dock_ha` folder into `/config/blueprints/automation/`, so you have `/config/blueprints/automation/stream_dock_ha/doorbell_alert.yaml`, then restart Home Assistant or reload automations.
 
 ## Troubleshooting
 
@@ -206,8 +238,8 @@ The app says how the integration is doing in **Settings > Home Assistant**, on t
 
 | The app says | What to do |
 | --- | --- |
-| Integration: not installed in Home Assistant | Copy the integration into Home Assistant and restart it ([step 1](#1-put-the-integration-in-home-assistant)). The app asks again each time it connects |
-| Integration: add Stream Dock HA in Home Assistant's Devices & services | It's installed but not added yet ([step 2](#2-add-it)) |
+| Integration: not installed in Home Assistant | Copy the integration into Home Assistant and restart it ([step 2](#2-put-the-integration-in-home-assistant)). The app asks again each time it connects |
+| Integration: add Stream Dock HA in Home Assistant's Devices & services | It's installed but not added yet ([step 3](#3-add-it)) |
 | The integration needs a token from an administrator user | Home Assistant answered `unauthorized`: the app's token belongs to a user who isn't an administrator. Make a token as an administrator, and paste it in the app |
 | Integration: update the Stream Dock HA integration | The integration is older than the app. Update it and restart Home Assistant |
 | Integration: update this app | The app is older than the integration. Update the app |
@@ -225,6 +257,9 @@ On a card or from an action:
 
 The app's `pad-log.txt`, next to its settings in `%APPDATA%\StreamDockHA`, lists what it heard from the integration. **Download diagnostics** on the integration's page in Home Assistant gives its side.
 
+Problems with the integration go in [this repository's issues](https://github.com/Max-src/stream-dock-ha-integration/issues); problems with the app itself (keys, pads, Mini Monitor, its window) go in [the app's issues](https://github.com/Max-src/stream-dock-ha/issues).
+
+<!-- ha-marketplace:exclude-start -->
 ## Development
 
 The protocol between the app, this integration and the card is in [`docs/protocol.md`](docs/protocol.md).
@@ -242,6 +277,9 @@ The card's tests: `node --test frontend-dev/test/*.mjs`. Screenshots of the card
 
 **Never start headless Edge or Chrome with a new temporary `--user-data-dir`.** Each new profile makes a failed Windows logon (Edge checks whether the password is blank), and 10 of them lock the account. Reuse `frontend-dev/.edge-profile` through [`frontend-dev/edge.mjs`](frontend-dev/edge.mjs), never delete it or its `Local State`, and let its lock file keep scripts from sharing it at the same time. A script that needs Edges in parallel gives each its own lasting folder (`.edge-profile-1`, `.edge-profile-2`), never one per launch.
 
+Publishing a new version, and what's left before the Marketplace listing: [`docs/publishing.md`](docs/publishing.md).
+<!-- ha-marketplace:exclude-end -->
+
 ## License
 
-MIT
+[MIT](LICENSE)

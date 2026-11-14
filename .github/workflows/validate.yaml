@@ -1,0 +1,31 @@
+# The checks Home Assistant's Marketplace (and HACS) run before listing an
+# integration: hassfest, Home Assistant's own check of the integration, and
+# the Marketplace's check of the repository.
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  hassfest:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "home-assistant/actions/hassfest@master"
+
+  hacs:
+    # The Marketplace only reads public repositories, so this check can only
+    # pass once the repository is public. Until then it's skipped.
+    if: ${{ !github.event.repository.private }}
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: HACS validation
+        uses: "hacs/action@main"
+        with:
+          category: "integration"

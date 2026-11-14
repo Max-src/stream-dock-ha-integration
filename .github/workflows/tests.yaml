@@ -1,0 +1,32 @@
+# The integration's tests (pytest) and the card's tests (node).
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "astral-sh/setup-uv@v6"
+      - name: Install
+        run: |
+          uv venv --python 3.14
+          uv pip install pytest-homeassistant-custom-component==0.13.375 home-assistant-frontend==20260930.5
+      - name: Run
+        run: .venv/bin/python -m pytest -q
+
+  card:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-node@v4"
+        with:
+          node-version: "22"
+      - run: node --test frontend-dev/test/*.mjs

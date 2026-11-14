@@ -1,9 +1,9 @@
 {
   "domain": "stream_dock_ha",
   "name": "Stream Dock HA",
+  "after_dependencies": ["lovelace"],
   "codeowners": ["@Max-src"],
   "config_flow": true,
-  "after_dependencies": ["lovelace"],
   "dependencies": ["http", "frontend", "websocket_api"],
   "documentation": "https://github.com/Max-src/stream-dock-ha-integration",
   "integration_type": "hub",
@@ -11,5 +11,5 @@
   "issue_tracker": "https://github.com/Max-src/stream-dock-ha-integration/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.1.11"
+  "version": "0.1.12"
 }
