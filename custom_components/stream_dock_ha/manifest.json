@@ -2,6 +2,7 @@
   "domain": "stream_dock_ha",
   "name": "Stream Dock HA",
   "after_dependencies": ["lovelace"],
+  "categories": ["buttons_remotes", "computers_network"],
   "codeowners": ["@Max-src"],
   "config_flow": true,
   "dependencies": ["http", "frontend", "websocket_api"],

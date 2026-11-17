@@ -24,6 +24,7 @@ From the Marketplace (Home Assistant 2026.11 or later), with HACS, or by hand: s
 - The README says who can see a pad's screen on a dashboard, and how to keep it to administrators.
 - Icons for the **Show on a key** and **Clear a key** actions.
 - The card's files are checked off Home Assistant's event loop.
+- Listed under **Buttons & remotes** and **Computers & network** in the Marketplace.
 
 ## Coming from a copy made by hand
 

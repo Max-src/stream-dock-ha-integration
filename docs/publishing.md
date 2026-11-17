@@ -43,4 +43,4 @@ The catalog is still the `hacs/default` repository, and only the owner of a repo
 3. Open a pull request and fill in its template completely: links to the latest release, to a passing **Validate** run's Marketplace check (with nothing ignored) and to a passing hassfest run. An incomplete template gets the pull request closed.
 4. Its own checks then run: brands, the manifest, a clash with a Home Assistant domain, releases, owner, licence, description, topics and issues. Reviews take months, and asking people to review doesn't help.
 
-Optional, before asking: add `"categories"` to the manifest (one to three Marketplace categories, such as a kind of device). The Marketplace check only warns when it's missing, and fails on a name it doesn't know, so pick from its current list.
+The manifest's `"categories"` (`buttons_remotes`, `computers_network`) come from [Home Assistant's list](https://contributors.home-assistant.io/core/integrations/categories/). The Marketplace check fails on a name that isn't in it.
