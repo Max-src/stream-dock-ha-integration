@@ -72,6 +72,8 @@ Keys that open programs or websites, press keys or type text can't be pressed fr
 
 **Only administrators can press keys on dashboards** (off by default), under the integration's **Configure**. When it's off, anyone logged in to Home Assistant can press keys on a card.
 
+Anyone logged in to Home Assistant who can open a dashboard with a pad or Mini Monitor card also sees what the pad shows, including the PC's screen while Mini Monitor is on. Put those cards on a dashboard only the right people can open: a dashboard's settings can limit it to administrators.
+
 ## The cards
 
 The integration adds the cards to Home Assistant's dashboards by itself: there's no resource to add, and no HACS frontend download. It lists the card in the dashboards' resources (or, when those are written in YAML, loads it with every page). The browser checks for a newer card at each page load, so after updating the integration a new card shows with a page refresh; changes to the integration itself still need a restart.

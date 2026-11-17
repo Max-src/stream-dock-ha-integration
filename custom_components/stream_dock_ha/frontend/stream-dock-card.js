@@ -13,7 +13,7 @@
 const CARD_TYPE = 'stream-dock-card';
 const KEY_CARD_TYPE = 'stream-dock-key-card';
 const SCREEN_CARD_TYPE = 'stream-dock-screen-card';
-const CARD_VERSION = '0.1.12';
+const CARD_VERSION = '0.1.13';
 
 /** Picture sizes at scale 1 (protocol 3.4). */
 const KEY_PX = 85;

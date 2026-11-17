@@ -134,6 +134,12 @@
     },
     "clear_alert": {
       "service": "mdi:alert-remove"
+    },
+    "show_on_key": {
+      "service": "mdi:message-badge"
+    },
+    "clear_on_key": {
+      "service": "mdi:message-off"
     }
   }
 }

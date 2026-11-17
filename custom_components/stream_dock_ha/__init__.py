@@ -64,6 +64,16 @@ async def _async_register_card(hass: HomeAssistant, version: str) -> None:
         add_extra_js_url(hass, CARD_URL)
 
 
+def _card_file(path: str) -> Path | None:
+    """The card's script at that path, or None. Touches the disk, so not on the loop."""
+    root = FRONTEND_DIR.resolve()
+    file = (root / path).resolve()
+    # Only the folder's own scripts: "../" and other kinds are refused.
+    if not file.is_relative_to(root) or file.suffix != ".js" or not file.is_file():
+        return None
+    return file
+
+
 class CardView(HomeAssistantView):
     """The card's files, without login: browsers load them as scripts."""
 
@@ -73,12 +83,8 @@ class CardView(HomeAssistantView):
 
     async def get(self, request: web.Request, path: str) -> web.FileResponse:
         """Return a file of the card's folder, to be checked again next time."""
-        root = FRONTEND_DIR.resolve()
-        file = (root / path).resolve()
-        # Only the folder's own scripts: "../" and other kinds are refused.
-        if not file.is_relative_to(root) or file.suffix != ".js":
-            raise web.HTTPNotFound
-        if not await request.app[KEY_HASS].async_add_executor_job(file.is_file):
+        file = await request.app[KEY_HASS].async_add_executor_job(_card_file, path)
+        if file is None:
             raise web.HTTPNotFound
         return web.FileResponse(
             file,

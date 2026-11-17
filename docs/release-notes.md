@@ -1,4 +1,4 @@
-The first release of the Stream Dock HA integration: the PCs running the [Stream Dock HA app](https://github.com/Max-src/stream-dock-ha), and their pads, become devices in Home Assistant, and dashboard cards show a pad's keys live and press them.
+The first public release of the Stream Dock HA integration: the PCs running the [Stream Dock HA app](https://github.com/Max-src/stream-dock-ha), and their pads, become devices in Home Assistant, and dashboard cards show a pad's keys live and press them.
 
 ## Before you install
 
@@ -17,6 +17,13 @@ From the Marketplace (Home Assistant 2026.11 or later), with HACS, or by hand: s
 - **Device triggers** for every key, button and knob, and a `stream_dock_ha_event` for every press.
 - **Dashboard cards**, added by the integration itself, with nothing to download: a whole pad, one key or a few, and Mini Monitor as one screen, with the PC's mouse for administrators.
 - **Blueprints**: a knob that dims a light, a key that toggles an entity, an on-air light that follows the microphone, and a doorbell alert with the door camera.
+
+## Changes since 0.1.12
+
+- **Diagnostics leave out names:** the PC's name, its Windows user and machine id, and profile, key and alert titles are redacted, so diagnostics can be shared in an issue.
+- The README says who can see a pad's screen on a dashboard, and how to keep it to administrators.
+- Icons for the **Show on a key** and **Clear a key** actions.
+- The card's files are checked off Home Assistant's event loop.
 
 ## Coming from a copy made by hand
 

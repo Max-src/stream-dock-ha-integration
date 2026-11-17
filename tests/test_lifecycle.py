@@ -288,3 +288,10 @@ async def test_diagnostics(
     assert result["pcs"][0]["online"] is True
     assert result["pads"][0]["pictures_cached"] == {"scale": 1, "count": 4}
     assert "SECRETPICTURE" not in str(result)
+    # Names people chose stay out of what gets pasted into issues.
+    assert result["pcs"][0]["name"] == "**REDACTED**"
+    assert result["pcs"][0]["user"] == "**REDACTED**"
+    state = result["pads"][0]["state"]
+    assert state["name"] == "**REDACTED**"
+    control = state["layout"]["controls"][0]["name"]
+    assert control.startswith(("key_", "button_", "band_"))
